@@ -26,7 +26,7 @@ export function SmartImage({
     return (
       <div
         className={cn(
-          "flex items-center justify-center rounded-xl border border-dashed border-white/10 bg-white/[0.03] text-muted-foreground/50",
+          "flex items-center justify-center rounded-xl border border-dashed border-foreground/15 bg-foreground/[0.03] text-muted-foreground/50",
           className,
         )}
       >
@@ -38,9 +38,9 @@ export function SmartImage({
   return (
     <div className={cn("relative overflow-hidden rounded-xl", className)}>
       <motion.img
-        initial={{ opacity: 0, scale: 1.04 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
         src={abs}
         alt={alt}
         loading={eager ? "eager" : "lazy"}

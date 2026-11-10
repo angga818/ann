@@ -13,10 +13,12 @@ import {
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Logo } from "@/components/Logo";
 import { AnimatedNumber, ConnectionPill, PageTransition } from "@/components/common";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { CountdownBar, TimerDigits } from "@/components/game/Countdown";
 import { LeaderboardList, PodiumView } from "@/components/game/Leaderboard";
 import { OptionGrid, QuestionHeader } from "@/components/game/OptionGrid";
 import { useGameSocket } from "@/hooks/useGameSocket";
+import { useServerCountdown } from "@/hooks/useServerCountdown";
 import { useToast } from "@/components/toast";
 import { clearPlayerCreds, loadPlayerCreds } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
@@ -39,6 +41,10 @@ export default function PlayerLivePage() {
     creds && creds.pin === pin ? creds.ws_url : null,
   );
 
+  // Sisa waktu soal aktif — untuk mengunci input dan info "waktu habis".
+  const remaining = useServerCountdown(store.deadlineMs);
+  const timeUp = store.status === "QUESTION" && !!store.deadlineMs && remaining <= 0;
+
   // Error WS → toast sekali per pesan.
   const lastErrRef = React.useRef<string | null>(null);
   React.useEffect(() => {
@@ -58,7 +64,7 @@ export default function PlayerLivePage() {
   }, [store.lastError, toast]);
 
   function submitAnswer(optionId: string) {
-    if (store.yourAnswer || store.status !== "QUESTION") return;
+    if (store.yourAnswer || store.status !== "QUESTION" || timeUp) return;
     const ok = send("SUBMIT_ANSWER", { index: store.index, option_id: optionId });
     if (!ok) toast("warning", "Belum terhubung", "Jawaban tidak terkirim — tunggu koneksi pulih.");
   }
@@ -81,13 +87,13 @@ export default function PlayerLivePage() {
   return (
     <div className="flex min-h-dvh flex-col">
       {/* Header ringkas */}
-      <header className="sticky top-0 z-40 border-b border-white/5 bg-background/70 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link to="/">
             <Logo compact />
           </Link>
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="font-display tabular-nums">
+            <Badge variant="secondary" className="hidden font-display tabular-nums sm:inline-flex">
               PIN {pin}
             </Badge>
             <ConnectionPill status={wsStatus} />
@@ -96,6 +102,7 @@ export default function PlayerLivePage() {
                 <RefreshCw />
               </Button>
             )}
+            <ThemeToggle />
           </div>
         </div>
       </header>
@@ -114,31 +121,36 @@ export default function PlayerLivePage() {
               <motion.div
                 animate={{ y: [0, -10, 0] }}
                 transition={{ repeat: Infinity, duration: 3.2, ease: "easeInOut" }}
-                className="grid size-20 place-items-center rounded-3xl bg-gradient-to-br from-violet-500 via-fuchsia-500 to-cyan-400 shadow-xl shadow-fuchsia-500/25"
+                className="grid size-20 place-items-center rounded-3xl bg-primary text-primary-foreground"
               >
-                <Users className="size-9 text-white" strokeWidth={2.2} />
+                <Users className="size-9" strokeWidth={2.2} />
               </motion.div>
 
               <h1 className="mt-7 font-display text-3xl font-black tracking-tight">
-                Halo, <span className="bg-gradient-to-r from-violet-300 to-fuchsia-300 bg-clip-text text-transparent">{creds?.nickname}</span>!
+                Halo, <span className="text-primary">{creds?.nickname}</span>!
               </h1>
               <p className="mt-2 max-w-sm text-sm text-muted-foreground">
                 Anda sudah masuk lobby. Menunggu host memulai permainan…
               </p>
 
               <div className="mt-10 grid w-full max-w-sm grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-border bg-card/60 p-5">
+                <div className="rounded-2xl border border-border bg-card p-5">
                   <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pemain</p>
-                  <AnimatedNumber value={store.totalPlayers || store.players.length} className="mt-1 block font-display text-3xl font-black tabular-nums" />
+                  <AnimatedNumber
+                    value={store.totalPlayers || store.players.length}
+                    className="mt-1 block font-display text-3xl font-black tabular-nums"
+                  />
                 </div>
-                <div className="rounded-2xl border border-border bg-card/60 p-5">
+                <div className="rounded-2xl border border-border bg-card p-5">
                   <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Total Soal</p>
                   <AnimatedNumber value={store.total} className="mt-1 block font-display text-3xl font-black tabular-nums" />
                 </div>
               </div>
 
               <div className="mt-10 w-full max-w-sm">
-                <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Sudah di lobby</p>
+                <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Sudah di lobby
+                </p>
                 <div className="flex flex-wrap justify-center gap-2">
                   <AnimatePresence>
                     {store.players.map((p) => (
@@ -150,8 +162,8 @@ export default function PlayerLivePage() {
                         className={cn(
                           "rounded-full border px-3 py-1.5 text-xs font-semibold",
                           p.player_id === creds?.player_id
-                            ? "border-violet-400/50 bg-violet-500/15 text-violet-200"
-                            : "border-border bg-white/[0.03] text-foreground/80",
+                            ? "border-primary/45 bg-primary/10 text-primary"
+                            : "border-border bg-foreground/[0.03] text-foreground/80",
                         )}
                       >
                         {p.nickname}
@@ -187,18 +199,20 @@ export default function PlayerLivePage() {
                 className="relative grid size-32 place-items-center"
               >
                 <motion.span
-                  className="absolute inset-0 rounded-full border-4 border-violet-400/40"
+                  className="absolute inset-0 rounded-full border-4 border-primary/40"
                   animate={{ scale: [1, 1.35, 1], opacity: [0.8, 0, 0.8] }}
                   transition={{ repeat: Infinity, duration: 1.5 }}
                 />
-                <span className="font-display text-6xl font-black">
+                <span className="font-display text-6xl font-black text-primary">
                   {String((store.question?.index ?? 0) + 1).padStart(2, "0")}
                 </span>
               </motion.div>
               <p className="mt-6 text-sm font-semibold uppercase tracking-[0.25em] text-muted-foreground">
                 Soal berikutnya
               </p>
-              <p className="mt-1 text-xs text-muted-foreground/70">Bersiap jawab secepat mungkin untuk poin maksimal!</p>
+              <p className="mt-1 text-xs text-muted-foreground/70">
+                Bersiap jawab secepat mungkin untuk poin maksimal!
+              </p>
             </motion.section>
           )}
 
@@ -209,22 +223,29 @@ export default function PlayerLivePage() {
               initial={{ opacity: 0, y: 22 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -16 }}
-              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
             >
               {/* status jawaban / timer */}
               <div className="mb-5 flex items-center justify-between gap-3">
-                {view === "question" && !store.yourAnswer ? (
+                {view === "question" && !store.yourAnswer && !timeUp ? (
                   <div className="flex items-center gap-4">
-                    <TimerDigits deadlineMs={store.deadlineMs} totalMs={store.question.time_limit_sec * 1000} />
+                    <TimerDigits deadlineMs={store.deadlineMs} />
                     <span className="text-sm text-muted-foreground">detik</span>
                   </div>
+                ) : view === "question" && timeUp && !store.yourAnswer ? (
+                  <Badge variant="warning" className="px-3.5 py-2 text-xs">
+                    <Loader2 className="animate-spin" /> Waktu habis — menghitung hasil…
+                  </Badge>
+                ) : view === "question" ? (
+                  <Badge variant="accent" className="px-3.5 py-2 text-xs">
+                    <BadgeCheck className="size-4" /> Jawaban diterima!
+                  </Badge>
                 ) : (
-                  <Badge variant={you?.is_correct === true ? "success" : you?.is_correct === false ? "destructive" : "accent"} className="px-3.5 py-2 text-xs">
-                    {view === "question" ? (
-                      <>
-                        <BadgeCheck className="size-4" /> Jawaban diterima!
-                      </>
-                    ) : you?.is_correct ? (
+                  <Badge
+                    variant={you?.is_correct === true ? "success" : you?.is_correct === false ? "destructive" : "secondary"}
+                    className="px-3.5 py-2 text-xs"
+                  >
+                    {you?.is_correct ? (
                       <>
                         <Trophy className="size-4" /> Benar! +{you.points_earned.toLocaleString("id-ID")}
                       </>
@@ -237,14 +258,18 @@ export default function PlayerLivePage() {
                 )}
                 {view === "question" && (
                   <Badge variant="secondary" className="px-3 py-1.5">
-                    <Flame className={cn(you?.streak ? "text-orange-400" : "text-muted-foreground/50")} />
+                    <Flame className={cn(you?.streak ? "text-warning" : "text-muted-foreground/50")} />
                     streak {you?.streak ?? 0}
                   </Badge>
                 )}
               </div>
 
-              {view === "question" && !store.yourAnswer && (
-                <CountdownBar deadlineMs={store.deadlineMs} totalMs={store.question.time_limit_sec * 1000} className="mb-6" />
+              {view === "question" && !store.yourAnswer && !timeUp && (
+                <CountdownBar
+                  deadlineMs={store.deadlineMs}
+                  totalMs={store.question.time_limit_sec * 1000}
+                  className="mb-6"
+                />
               )}
 
               <QuestionHeader question={store.question} eager />
@@ -255,41 +280,42 @@ export default function PlayerLivePage() {
                 selectedOptionId={store.yourAnswer?.option_id}
                 correctOptionId={store.correctOptionId}
                 reveal={view === "result"}
+                frozen={timeUp && view === "question"}
                 onSelect={(opt) => submitAnswer(opt.id)}
               />
 
               {/* Hasil personal */}
               {view === "result" && you && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 18 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.25 }}
+                  transition={{ delay: 0.2 }}
                   className="mt-8 grid grid-cols-3 gap-3"
                 >
                   <div
                     className={cn(
                       "rounded-2xl border p-4 text-center",
-                      you.is_correct ? "border-emerald-500/30 bg-emerald-500/10" : "border-border bg-white/[0.03]",
+                      you.is_correct ? "border-success/40 bg-success/10" : "border-border bg-foreground/[0.03]",
                     )}
                   >
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Poin</p>
                     <AnimatedNumber
                       value={you.points_earned}
-                      className={cn("mt-1 block font-display text-2xl font-black", you.is_correct && "text-emerald-300")}
+                      className={cn("mt-1 block font-display text-2xl font-black", you.is_correct && "text-success")}
                     />
                   </div>
-                  <div className="rounded-2xl border border-border bg-white/[0.03] p-4 text-center">
+                  <div className="rounded-2xl border border-border bg-foreground/[0.03] p-4 text-center">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Peringkat</p>
                     <p className="mt-1 font-display text-2xl font-black tabular-nums">
                       #{you.rank}
                       <span className="text-sm font-bold text-muted-foreground"> / {store.totalPlayers}</span>
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-border bg-white/[0.03] p-4 text-center">
+                  <div className="rounded-2xl border border-border bg-foreground/[0.03] p-4 text-center">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Streak</p>
                     <p className="mt-1 font-display text-2xl font-black tabular-nums">
                       {you.streak}
-                      {you.streak > 1 && <Flame className="ml-0.5 inline size-4 text-orange-400" />}
+                      {you.streak > 1 && <Flame className="ml-0.5 inline size-4 text-warning" />}
                     </p>
                   </div>
                 </motion.div>
@@ -299,8 +325,8 @@ export default function PlayerLivePage() {
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                  className="mt-8 rounded-2xl border border-border bg-card/60 p-5"
+                  transition={{ delay: 0.35 }}
+                  className="mt-8 rounded-2xl border border-border bg-card p-5"
                 >
                   <h3 className="mb-4 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
                     Top 10
@@ -323,26 +349,21 @@ export default function PlayerLivePage() {
 
           {/* ------------------------------ PODIUM ------------------------------ */}
           {view === "podium" && (
-            <motion.section
-              key="podium"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="py-6"
-            >
+            <motion.section key="podium" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-6">
               <div className="mb-14 text-center">
                 <motion.h1
-                  initial={{ scale: 0.7, opacity: 0 }}
+                  initial={{ scale: 0.75, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 200, damping: 14 }}
-                  className="bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-400 bg-clip-text font-display text-4xl font-black text-transparent sm:text-5xl"
+                  className="font-display text-4xl font-black tracking-tight text-gold sm:text-5xl"
                 >
                   Hasil Akhir
                 </motion.h1>
                 {you && (
                   <p className="mt-3 text-sm text-muted-foreground">
                     Anda finis peringkat{" "}
-                    <span className="font-display font-black text-violet-300">#{you.rank}</span> dengan{" "}
-                    <span className="font-display font-black text-violet-300">
+                    <span className="font-display font-black text-primary">#{you.rank}</span> dengan{" "}
+                    <span className="font-display font-black text-primary">
                       {you.score.toLocaleString("id-ID")}
                     </span>{" "}
                     poin
@@ -354,10 +375,10 @@ export default function PlayerLivePage() {
 
               {store.finalLeaderboard && store.finalLeaderboard.length > 0 && (
                 <motion.div
-                  initial={{ opacity: 0, y: 24 }}
+                  initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6 }}
-                  className="mt-16 rounded-2xl border border-border bg-card/60 p-5"
+                  transition={{ delay: 0.5 }}
+                  className="mt-16 rounded-2xl border border-border bg-card p-5"
                 >
                   <h3 className="mb-4 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
                     Klasemen Akhir

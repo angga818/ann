@@ -15,10 +15,12 @@ import {
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Logo } from "@/components/Logo";
 import { ConnectionPill, PageTransition } from "@/components/common";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { CountdownBar, TimerDigits } from "@/components/game/Countdown";
 import { LeaderboardList, PodiumView } from "@/components/game/Leaderboard";
 import { AnswerBars, OptionGrid, QuestionHeader } from "@/components/game/OptionGrid";
 import { useGameSocket } from "@/hooks/useGameSocket";
+import { useServerCountdown } from "@/hooks/useServerCountdown";
 import { useToast } from "@/components/toast";
 import { clearHostCreds, loadHostCreds } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
@@ -31,7 +33,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { API_BASE_URL } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export default function HostLivePage() {
@@ -48,6 +49,10 @@ export default function HostLivePage() {
   }, [pin, creds, navigate]);
 
   const { store, wsStatus, send, forceReconnect } = useGameSocket(creds && creds.pin === pin ? creds.ws_url : null);
+
+  // Sisa waktu soal aktif — untuk mendeteksi fase "menghitung hasil".
+  const remaining = useServerCountdown(store.deadlineMs);
+  const tallying = store.status === "QUESTION" && !!store.deadlineMs && remaining <= 0;
 
   // Tangani error WS terakhir → toast.
   const lastErrRef = React.useRef<string | null>(null);
@@ -85,40 +90,46 @@ export default function HostLivePage() {
     send("END_GAME");
   }
 
-  function exitToLibrary() {
-    clearHostCreds();
-    navigate("/host");
-  }
-
   if (!pin) return null;
 
   const view =
-    store.status === "PODIUM" ? "podium" : store.status === "LOBBY" ? "lobby" : store.status === "RESULT" ? "result" : store.status === "PREVIEW" ? "preview" : "question";
+    store.status === "PODIUM"
+      ? "podium"
+      : store.status === "LOBBY"
+        ? "lobby"
+        : store.status === "RESULT"
+          ? "result"
+          : store.status === "PREVIEW"
+            ? "preview"
+            : "question";
 
   return (
     <div className="flex min-h-dvh flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-white/5 bg-background/70 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <Link to="/host">
               <Logo compact />
             </Link>
             <div className="hidden flex-col sm:flex">
-              <span className="font-display text-sm font-bold leading-tight">{store.quizTitle || creds?.quiz_title || "Sesi Live"}</span>
+              <span className="font-display text-sm font-bold leading-tight">
+                {store.quizTitle || creds?.quiz_title || "Sesi Live"}
+              </span>
               <span className="text-[11px] text-muted-foreground">Mode Host</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <div className="hidden items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 font-display text-sm font-bold tabular-nums sm:flex">
+              PIN {pin}
+            </div>
             <ConnectionPill status={wsStatus} />
             {wsStatus !== "open" && (
               <Button variant="outline" size="iconSm" onClick={forceReconnect} title="Sambung ulang">
                 <RefreshCw />
               </Button>
             )}
-            <div className="hidden items-center gap-1.5 rounded-xl border border-border bg-card/60 px-3 py-1.5 font-display text-sm font-bold tabular-nums sm:flex">
-              PIN {pin}
-            </div>
+            <ThemeToggle />
           </div>
         </div>
       </header>
@@ -135,24 +146,17 @@ export default function HostLivePage() {
               className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[1.2fr_1fr]"
             >
               {/* Kartu PIN */}
-              <div className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-b from-violet-500/10 to-transparent p-8 text-center sm:p-12">
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-violet-500/15 to-transparent blur-2xl" />
+              <div className="rounded-3xl border border-border bg-card p-8 text-center sm:p-12">
                 <p className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Kode Pin</p>
                 <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
+                  initial={{ scale: 0.85, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 200, damping: 18, delay: 0.1 }}
-                  className="relative mx-auto mt-4 w-fit"
+                  className="mt-4"
                 >
                   <span className="font-display text-6xl font-black tracking-[0.18em] tabular-nums sm:text-8xl">
                     {pin}
                   </span>
-                  <motion.span
-                    aria-hidden
-                    className="absolute inset-x-0 -bottom-2 h-1 rounded-full bg-gradient-to-r from-violet-400 via-fuchsia-400 to-cyan-300"
-                    animate={{ opacity: [0.5, 1, 0.5] }}
-                    transition={{ repeat: Infinity, duration: 2.4 }}
-                  />
                 </motion.div>
                 <p className="mt-8 flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
                   <Smartphone className="size-4" />
@@ -169,10 +173,10 @@ export default function HostLivePage() {
               </div>
 
               {/* Panel pemain */}
-              <div className="rounded-3xl border border-border bg-card/60 p-6">
+              <div className="rounded-3xl border border-border bg-card p-6">
                 <div className="mb-5 flex items-center justify-between">
                   <h2 className="flex items-center gap-2 font-display text-lg font-bold">
-                    <Users className="size-5 text-violet-300" /> Ruang Tunggu
+                    <Users className="size-5 text-primary" /> Ruang Tunggu
                   </h2>
                   <Badge variant="secondary" className="px-3 py-1 font-display text-sm">
                     {store.players.length} pemain
@@ -184,7 +188,7 @@ export default function HostLivePage() {
                     <motion.div
                       animate={{ rotate: [0, -10, 10, 0] }}
                       transition={{ repeat: Infinity, duration: 3.2 }}
-                      className="rounded-2xl bg-white/[0.04] p-4"
+                      className="rounded-2xl bg-secondary p-4"
                     >
                       <Eye className="size-7 opacity-60" />
                     </motion.div>
@@ -200,9 +204,9 @@ export default function HostLivePage() {
                           animate={{ scale: 1, opacity: 1 }}
                           exit={{ scale: 0, opacity: 0 }}
                           transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                          className="flex items-center gap-2 rounded-xl border border-border bg-white/[0.04] px-3.5 py-2.5"
+                          className="flex items-center gap-2 rounded-xl border border-border bg-foreground/[0.03] px-3.5 py-2.5"
                         >
-                          <span className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-violet-500/40 to-fuchsia-500/40 font-display text-xs font-extrabold uppercase text-violet-100">
+                          <span className="grid size-7 place-items-center rounded-lg bg-secondary font-display text-xs font-extrabold uppercase text-primary">
                             {p.nickname.slice(0, 2)}
                           </span>
                           <span className="max-w-36 truncate text-sm font-semibold">{p.nickname}</span>
@@ -221,7 +225,7 @@ export default function HostLivePage() {
                   >
                     {store.players.length < 1 ? (
                       <>
-        <Loader2 className="animate-spin" /> Butuh minimal 1 pemain
+                        <Loader2 className="animate-spin" /> Butuh minimal 1 pemain
                       </>
                     ) : (
                       <>
@@ -247,29 +251,21 @@ export default function HostLivePage() {
               className="flex min-h-[70vh] flex-col items-center justify-center"
             >
               <motion.p
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="mb-2 text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground"
               >
                 Bersiap — Soal {store.question.index + 1} dari {store.question.total}
               </motion.p>
               <motion.div
-                initial={{ scale: 0.4, opacity: 0 }}
+                initial={{ scale: 0.5, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 260, damping: 20 }}
                 className="relative"
               >
-                <span className="font-display text-[9rem] font-black leading-none text-transparent sm:text-[12rem]">
-                  <span className="bg-gradient-to-b from-violet-300 via-fuchsia-300 to-cyan-300 bg-clip-text">
-                {String(Math.max(1, store.question.index + 1)).padStart(2, "0")}
-                  </span>
+                <span className="font-display text-[9rem] font-black leading-none text-primary sm:text-[12rem]">
+                  {String(Math.max(1, store.question.index + 1)).padStart(2, "0")}
                 </span>
-                <motion.span
-                  aria-hidden
-                  className="absolute -inset-8 -z-10 rounded-full bg-violet-500/20 blur-3xl"
-                  animate={{ opacity: [0.4, 0.9, 0.4], scale: [0.9, 1.1, 0.9] }}
-                  transition={{ repeat: Infinity, duration: 1.8 }}
-                />
               </motion.div>
               <p className="mt-4 text-sm text-muted-foreground">Pertanyaan segera dimulai…</p>
             </motion.section>
@@ -282,17 +278,30 @@ export default function HostLivePage() {
               initial={{ opacity: 0, y: 22 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -16 }}
-              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
               className="space-y-6"
             >
               {/* Timer + jumlah jawaban */}
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-4">
-                  <TimerDigits deadlineMs={view === "question" ? store.deadlineMs : undefined} totalMs={store.question.time_limit_sec * 1000} />
-                  <span className="text-sm text-muted-foreground">detik</span>
-                </div>
+                {tallying ? (
+                  <Badge variant="warning" className="px-3.5 py-2 text-xs">
+                    <Loader2 className="animate-spin" /> Waktu habis — menghitung hasil…
+                  </Badge>
+                ) : view === "question" ? (
+                  <div className="flex items-center gap-4">
+                    <TimerDigits deadlineMs={store.deadlineMs} />
+                    <span className="text-sm text-muted-foreground">detik</span>
+                  </div>
+                ) : (
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Soal selesai
+                  </span>
+                )}
                 <div className="flex items-center gap-2">
-                  <Badge variant={store.answeredCount >= store.totalPlayers && store.totalPlayers > 0 ? "success" : "secondary"} className="px-3 py-1.5">
+                  <Badge
+                    variant={store.answeredCount >= store.totalPlayers && store.totalPlayers > 0 ? "success" : "secondary"}
+                    className="px-3 py-1.5"
+                  >
                     <Users className="size-3.5" />
                     {store.answeredCount}/{store.totalPlayers} menjawab
                   </Badge>
@@ -317,18 +326,18 @@ export default function HostLivePage() {
               {/* Ringkasan setelah semua menjawab */}
               {view === "result" && (
                 <motion.div
-                  initial={{ opacity: 0, y: 18 }}
+                  initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2"
                 >
-                  <div className="rounded-2xl border border-border bg-card/60 p-5">
+                  <div className="rounded-2xl border border-border bg-card p-5">
                     <AnswerBars
                       counts={store.answerCounts ?? {}}
                       options={store.question.options}
                       correctOptionId={store.correctOptionId}
                     />
                   </div>
-                  <div className="rounded-2xl border border-border bg-card/60 p-5">
+                  <div className="rounded-2xl border border-border bg-card p-5">
                     <h3 className="mb-4 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
                       Klasemen Sementara
                     </h3>
@@ -338,9 +347,15 @@ export default function HostLivePage() {
               )}
 
               {/* Kontrol host */}
-              <div className="sticky bottom-4 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/80 p-3.5 backdrop-blur-xl">
+              <div className="sticky bottom-4 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-3.5">
                 <p className="px-2 text-xs text-muted-foreground">
-                  {view === "question" ? "Menunggu jawaban pemain…" : store.isLast ? "Soal terakhir — lanjutkan untuk podium." : "Lanjutkan ke soal berikutnya."}
+                  {tallying
+                    ? "Menunggu ringkasan jawaban dari server…"
+                    : view === "question"
+                      ? "Menunggu jawaban pemain…"
+                      : store.isLast
+                        ? "Soal terakhir — lanjutkan untuk podium."
+                        : "Lanjutkan ke soal berikutnya."}
                 </p>
                 <div className="flex gap-2">
                   <Button variant="outlineDestructive" size="sm" onClick={() => setEndConfirm(true)}>
@@ -374,10 +389,10 @@ export default function HostLivePage() {
             >
               <div className="mb-14 text-center">
                 <motion.h1
-                  initial={{ scale: 0.7, opacity: 0 }}
+                  initial={{ scale: 0.75, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 200, damping: 14 }}
-                  className="bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-400 bg-clip-text font-display text-5xl font-black text-transparent sm:text-6xl"
+                  className="font-display text-4xl font-black tracking-tight text-gold sm:text-5xl"
                 >
                   Permainan Selesai!
                 </motion.h1>
@@ -389,7 +404,7 @@ export default function HostLivePage() {
               <PodiumView podium={store.podium ?? []} />
 
               {store.finalLeaderboard && store.finalLeaderboard.length > 3 && (
-                <div className="mt-16 rounded-2xl border border-border bg-card/60 p-6">
+                <div className="mt-16 rounded-2xl border border-border bg-card p-6">
                   <h3 className="mb-4 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
                     Klasemen Akhir
                   </h3>

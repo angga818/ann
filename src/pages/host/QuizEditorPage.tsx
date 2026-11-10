@@ -17,6 +17,7 @@ import type { QuizQuestionInput } from "@/types";
 import { Logo } from "@/components/Logo";
 import { PageTransition } from "@/components/common";
 import { SmartImage } from "@/components/SmartImage";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input, } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -140,12 +141,12 @@ function ImageField({
       <Label>{label}</Label>
       <div className="flex flex-wrap items-start gap-3">
         <div className="relative">
-          <SmartImage url={value || null} alt={label} className="h-24 w-40 shrink-0 border border-white/10" />
+          <SmartImage url={value || null} alt={label} className="h-24 w-40 shrink-0 border border-border" />
           {progress !== null && (
             <div className="absolute inset-0 flex items-end rounded-xl bg-black/60 p-2">
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/20">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/30">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-violet-400 to-fuchsia-400 transition-all"
+                  className="h-full rounded-full bg-primary transition-all"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -214,10 +215,10 @@ function QuestionCard({
   const usedColors = new Set(q.options.map((o) => o.color_index));
 
   return (
-    <motion.div layout className="rounded-2xl border border-border bg-card/60 p-5">
+    <motion.div layout className="rounded-2xl border border-border bg-card p-5">
       <div className="mb-4 flex items-center gap-3">
         <GripVertical className="size-5 shrink-0 cursor-grab text-muted-foreground/40 active:cursor-grabbing" />
-        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-violet-500/25 to-fuchsia-500/25 font-display text-sm font-bold text-violet-200">
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary font-display text-sm font-bold text-primary">
           {index + 1}
         </span>
         <Badge variant="outline" className="ml-auto">
@@ -296,7 +297,7 @@ function QuestionCard({
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="rounded-xl border border-white/10 bg-white/[0.02] p-2.5"
+                    className="rounded-xl border border-border bg-foreground/[0.02] p-2.5"
                   >
                     <div className="flex items-center gap-2">
                       {/* pilihan warna */}
@@ -317,7 +318,7 @@ function QuestionCard({
                               className={cn(
                                 "size-5 rounded-md transition-transform",
                                 cst.base,
-                                active ? "scale-110 ring-2 ring-white/70" : "opacity-50 hover:opacity-90 hover:scale-105",
+                                active ? "scale-110 ring-2 ring-foreground/70" : "opacity-50 hover:opacity-90 hover:scale-105",
                               )}
                             />
                           );
@@ -336,10 +337,10 @@ function QuestionCard({
                           })
                         }
                         className={cn(
-                          "ml-auto grid size-7 place-items-center rounded-lg border transition-all",
+                          "ml-auto grid size-7 place-items-center rounded-lg border transition-colors",
                           opt.is_correct
-                            ? "border-emerald-400/60 bg-emerald-500/20 text-emerald-300"
-                            : "border-white/10 text-muted-foreground/40 hover:border-white/25 hover:text-muted-foreground",
+                            ? "border-success/60 bg-success/15 text-success"
+                            : "border-border text-muted-foreground/50 hover:border-foreground/30 hover:text-muted-foreground",
                         )}
                       >
                         <Check className="size-4" strokeWidth={3} />
@@ -348,7 +349,7 @@ function QuestionCard({
                         type="button"
                         title="Hapus opsi"
                         onClick={() => onChange({ options: q.options.filter((o) => o.key !== opt.key) })}
-                        className="grid size-7 place-items-center rounded-lg text-muted-foreground/40 transition-colors hover:text-red-400"
+                        className="grid size-7 place-items-center rounded-lg text-muted-foreground/50 transition-colors hover:text-destructive"
                       >
                         <Trash2 className="size-3.5" />
                       </button>
@@ -480,14 +481,14 @@ export default function QuizEditorPage() {
   if (loading) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-violet-400" />
+        <Loader2 className="size-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-40 border-b border-white/5 bg-background/70 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
           <div className="flex items-center gap-4">
             <Button asChild variant="ghost" size="icon">
@@ -501,6 +502,7 @@ export default function QuizEditorPage() {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <Badge variant="secondary">{questions.length} soal</Badge>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
@@ -518,11 +520,11 @@ export default function QuizEditorPage() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="mb-6 overflow-hidden rounded-xl border border-amber-500/25 bg-amber-500/5"
+              className="mb-6 overflow-hidden rounded-xl border border-warning/25 bg-warning/10"
             >
               <div className="p-4">
-                <p className="mb-1 text-sm font-semibold text-amber-300">Perlu perbaikan sebelum disimpan:</p>
-                <ul className="ml-4 list-disc space-y-0.5 text-xs text-amber-200/80">
+                <p className="mb-1 text-sm font-semibold text-warning">Perlu perbaikan sebelum disimpan:</p>
+                <ul className="ml-4 list-disc space-y-0.5 text-xs text-warning/90">
                   {issues.slice(0, 6).map((it, i) => (
                     <li key={i}>
                       {it.questionIndex !== undefined && `Soal ${it.questionIndex + 1}: `}
@@ -536,7 +538,7 @@ export default function QuizEditorPage() {
         </AnimatePresence>
 
         {/* Detail kuis */}
-        <section className="mb-6 rounded-2xl border border-border bg-card/60 p-6">
+        <section className="mb-6 rounded-2xl border border-border bg-card p-6">
           <h2 className="mb-5 font-display text-lg font-bold">Detail Kuis</h2>
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_auto]">
             <div className="space-y-4">
@@ -604,7 +606,7 @@ export default function QuizEditorPage() {
         {questions.length === 0 && (
           <button
             onClick={() => setQuestions([emptyQuestion()])}
-            className="flex w-full flex-col items-center gap-3 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-14 text-muted-foreground transition-colors hover:border-violet-400/40 hover:text-foreground"
+            className="flex w-full flex-col items-center gap-3 rounded-2xl border border-dashed border-foreground/15 bg-foreground/[0.02] px-6 py-14 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
           >
             <ImagePlus className="size-8 opacity-50" />
             <span className="text-sm font-semibold">Belum ada pertanyaan — klik untuk menambah</span>

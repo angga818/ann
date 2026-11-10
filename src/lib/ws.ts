@@ -6,9 +6,9 @@ export type WsStatus = "connecting" | "open" | "reconnecting" | "closed";
 type Handler = (e: WsEvent) => void;
 
 /**
- * Koneksi WebSocket permainan dengan reconnect otomatis.
- * Token host/pemain dipakai ulang saat reconnect (PRD §4.3) dan server
- * selalu mengirim STATE_SYNC setelah koneksi berhasil.
+ * Koneksi WebSocket permainan dengan reconnect otomatis (backoff eksponensial).
+ * Token host/pemain dipakai ulang saat reconnect (PRD §4.3); server selalu
+ * mengirim STATE_SYNC setelah koneksi berhasil.
  */
 export class GameSocket {
   private ws: WebSocket | null = null;
@@ -36,9 +36,30 @@ export class GameSocket {
     return () => this.statusListeners.delete(fn);
   }
 
+  /** Lepas semua handler dari socket lama agar onclose-nya tidak memicu reconnect ganda. */
+  private detach(ws: WebSocket | null) {
+    if (!ws) return;
+    ws.onclose = null;
+    ws.onerror = null;
+    ws.onmessage = null;
+    ws.onopen = null;
+    try {
+      ws.close();
+    } catch {
+      /* abaikan */
+    }
+  }
+
   connect() {
     this.manualClose = false;
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
     this.setStatus(this.attempts === 0 ? "connecting" : "reconnecting");
+    // Buang koneksi lama (bila ada) sebelum membuka yang baru.
+    this.detach(this.ws);
+    this.ws = null;
     try {
       this.ws = new WebSocket(this.url);
     } catch {
@@ -76,11 +97,9 @@ export class GameSocket {
     this.timer = setTimeout(() => this.connect(), delay);
   }
 
-  /** Reconnect manual (membatalkan backoff berjalan). */
+  /** Reconnect manual — aman dari koneksi ganda. */
   forceReconnect() {
-    if (this.timer) clearTimeout(this.timer);
     this.attempts = 0;
-    this.ws?.close();
     this.connect();
   }
 
@@ -93,7 +112,8 @@ export class GameSocket {
   close() {
     this.manualClose = true;
     if (this.timer) clearTimeout(this.timer);
-    this.ws?.close();
+    this.detach(this.ws);
+    this.ws = null;
     this.setStatus("closed");
   }
 }

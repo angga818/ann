@@ -17,6 +17,7 @@ import type { QuizListItem } from "@/types";
 import { Logo } from "@/components/Logo";
 import { PageTransition } from "@/components/common";
 import { SmartImage } from "@/components/SmartImage";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -104,16 +105,19 @@ export default function HostQuizzesPage() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-40 border-b border-white/5 bg-background/60 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link to="/">
             <Logo />
           </Link>
-          <Button asChild size="sm">
-            <Link to="/host/quiz/new">
-              <Plus /> Kuis Baru
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button asChild size="sm">
+              <Link to="/host/quiz/new">
+                <Plus /> Kuis Baru
+              </Link>
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -163,9 +167,9 @@ export default function HostQuizzesPage() {
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center gap-5 rounded-3xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-20 text-center"
+            className="flex flex-col items-center gap-5 rounded-3xl border border-dashed border-foreground/15 bg-foreground/[0.02] px-6 py-20 text-center"
           >
-            <div className="rounded-2xl bg-gradient-to-br from-violet-500/15 to-fuchsia-500/15 p-5 text-violet-300">
+            <div className="rounded-2xl bg-secondary p-5 text-primary">
               <ListChecks className="size-9" />
             </div>
             <div>
@@ -198,12 +202,12 @@ export default function HostQuizzesPage() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card/70 shadow-lg shadow-black/20 transition-all duration-300 hover:-translate-y-1 hover:border-white/15 hover:shadow-violet-500/10"
+                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all duration-200 hover:-translate-y-1 hover:border-foreground/25"
                 >
                   <SmartImage
                     url={quiz.cover_image_url}
                     alt={`Cover ${quiz.title}`}
-                    className="h-40 w-full rounded-none border-b border-white/5"
+                    className="h-40 w-full rounded-none border-b border-border"
                   />
                   <div className="flex flex-1 flex-col p-5">
                     <div className="flex items-start justify-between gap-2">
@@ -211,7 +215,7 @@ export default function HostQuizzesPage() {
                       <div className="relative shrink-0">
                         <button
                           onClick={() => setMenuOpenId(menuOpenId === quiz.id ? null : quiz.id)}
-                          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+                          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
                         >
                           <MoreVertical className="size-4" />
                         </button>
@@ -223,14 +227,14 @@ export default function HostQuizzesPage() {
                                 initial={{ opacity: 0, y: -6, scale: 0.95 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: -6, scale: 0.95 }}
-                                className="absolute right-0 top-9 z-20 w-36 overflow-hidden rounded-xl border border-border bg-popover p-1 shadow-2xl shadow-black/50"
+                                className="absolute right-0 top-9 z-20 w-36 overflow-hidden rounded-xl border border-border bg-popover p-1 shadow-lg"
                               >
                                 <button
                                   onClick={() => {
                                     setMenuOpenId(null);
                                     navigate(`/host/quiz/${quiz.id}`);
                                   }}
-                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-foreground/90 transition-colors hover:bg-white/10"
+                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors hover:bg-foreground/10"
                                 >
                                   <Pencil className="size-3.5" /> Edit
                                 </button>
@@ -239,7 +243,7 @@ export default function HostQuizzesPage() {
                                     setMenuOpenId(null);
                                     setDeleteTarget(quiz);
                                   }}
-                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10"
+                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/10"
                                 >
                                   <Trash2 className="size-3.5" /> Hapus
                                 </button>

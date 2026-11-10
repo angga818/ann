@@ -1,6 +1,6 @@
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, CheckCircle2, Info, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ToastKind = "success" | "error" | "info" | "warning";
@@ -23,10 +23,10 @@ export function useToast() {
 }
 
 const ICONS: Record<ToastKind, React.ReactNode> = {
-  success: <CheckCircle2 className="size-5 text-emerald-400" />,
-  error: <XCircle className="size-5 text-red-400" />,
-  info: <Info className="size-5 text-sky-400" />,
-  warning: <AlertTriangle className="size-5 text-amber-400" />,
+  success: <CheckCircle2 className="size-5 text-success" />,
+  error: <XCircle className="size-5 text-destructive" />,
+  info: <Info className="size-5 text-accent" />,
+  warning: <AlertTriangle className="size-5 text-warning" />,
 };
 
 let nextId = 1;
@@ -60,18 +60,19 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.96 }}
               transition={{ type: "spring", stiffness: 400, damping: 32 }}
-              className="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border border-border bg-card/95 p-4 shadow-2xl shadow-black/50 backdrop-blur-md"
+              className="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border border-border bg-card p-4 shadow-lg"
             >
               <div className="mt-0.5 shrink-0">{ICONS[t.kind]}</div>
               <div className="min-w-0 flex-1">
-                <p className={cn("text-sm font-semibold", t.kind === "error" && "text-red-300")}>{t.title}</p>
+                <p className="text-sm font-semibold">{t.title}</p>
                 {t.description && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{t.description}</p>}
               </div>
               <button
                 onClick={() => dismiss(t.id)}
-                className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+                className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+                aria-label="Tutup notifikasi"
               >
-                <XCircle className="size-4" />
+                <X className="size-4" />
               </button>
             </motion.div>
           ))}

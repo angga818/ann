@@ -5,6 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { apiErrorMessage, apiErrorCode, joinSession } from "@/lib/api";
 import { Logo } from "@/components/Logo";
 import { PageTransition } from "@/components/common";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,9 +72,10 @@ export default function JoinPage() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="border-b border-white/5">
+      <header className="border-b border-border">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
           <Logo />
+          <ThemeToggle />
         </div>
       </header>
 
@@ -89,9 +91,9 @@ export default function JoinPage() {
               initial={{ scale: 0.6, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.1 }}
-              className="mx-auto mb-5 grid size-16 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 via-fuchsia-500 to-cyan-400 shadow-xl shadow-fuchsia-500/30"
+              className="mx-auto mb-5 grid size-16 place-items-center rounded-2xl bg-primary text-primary-foreground"
             >
-              <LogIn className="size-8 text-white" strokeWidth={2.4} />
+              <LogIn className="size-8" strokeWidth={2.4} />
             </motion.div>
             <h1 className="font-display text-3xl font-black tracking-tight">Gabung Permainan</h1>
             <p className="mt-2 text-sm text-muted-foreground">Masukkan PIN 6 digit dari host Anda.</p>
@@ -99,7 +101,7 @@ export default function JoinPage() {
 
           <form
             onSubmit={handleSubmit}
-            className="rounded-3xl border border-border bg-card/70 p-7 shadow-2xl shadow-black/25 backdrop-blur-sm"
+            className="rounded-3xl border border-border bg-card p-7 shadow-lg"
           >
             <div className="space-y-5">
               <div className="space-y-2">
@@ -114,8 +116,8 @@ export default function JoinPage() {
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   placeholder="••••••"
                   className={cn(
-                    "w-full rounded-xl border border-input bg-white/[0.03] py-4 text-center font-display text-4xl font-black tracking-[0.35em] tabular-nums outline-none transition-all focus:border-primary/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-ring",
-                    pin.length > 0 && !pinValid && "border-red-500/50",
+                    "w-full rounded-xl border border-input bg-foreground/[0.03] py-4 text-center font-display text-4xl font-black tracking-[0.35em] tabular-nums outline-none transition-colors focus:border-primary/60 focus:bg-foreground/[0.05] focus:ring-2 focus:ring-ring",
+                    pin.length > 0 && !pinValid && "border-destructive/50",
                   )}
                 />
                 <div className="flex justify-center gap-1.5 pt-1">
@@ -123,7 +125,7 @@ export default function JoinPage() {
                     <motion.span
                       key={i}
                       animate={{ opacity: pin.length > i ? 1 : 0.25, scale: pin.length === i ? 1.25 : 1 }}
-                      className="size-1.5 rounded-full bg-violet-400"
+                      className="size-1.5 rounded-full bg-primary"
                     />
                   ))}
                 </div>
@@ -151,7 +153,7 @@ export default function JoinPage() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="overflow-hidden rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-300"
+                    className="overflow-hidden rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive"
                   >
                     {error}
                   </motion.p>

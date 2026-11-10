@@ -1,11 +1,11 @@
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import * as React from "react";
-import { remainingMs } from "@/lib/time";
+import { motion } from "framer-motion";
+import { useServerCountdown } from "@/hooks/useServerCountdown";
 import { cn } from "@/lib/utils";
 
 /**
- * Bar countdown di atas soal: menyusut dari 100% → 0% mengikuti sisa waktu
- * berbasis jam server; berubah warna saat mendesak.
+ * Bar countdown soal: menyusut 100% → 0% berbasis jam server,
+ * tanpa animasi JS per-frame — cukup transisi CSS.
  */
 export function CountdownBar({
   deadlineMs,
@@ -16,75 +16,42 @@ export function CountdownBar({
   totalMs: number;
   className?: string;
 }) {
-  const [progress, setProgress] = React.useState(1);
-
-  React.useEffect(() => {
-    if (!deadlineMs || totalMs <= 0) {
-      setProgress(1);
-      return;
-    }
-    const update = () => {
-      const rem = remainingMs(deadlineMs);
-      setProgress(Math.min(1, Math.max(0, rem / totalMs)));
-    };
-    update();
-    const id = setInterval(update, 100);
-    return () => clearInterval(id);
-  }, [deadlineMs, totalMs]);
-
+  const remaining = useServerCountdown(deadlineMs);
+  const progress = totalMs > 0 ? Math.min(1, remaining / totalMs) : 1;
   const urgent = progress < 0.25;
   const warn = progress < 0.55;
 
   return (
-    <div className={cn("h-2.5 w-full overflow-hidden rounded-full bg-white/8", className)}>
-      <motion.div
+    <div className={cn("h-1.5 w-full overflow-hidden rounded-full bg-foreground/10", className)}>
+      <div
         className={cn(
-          "h-full rounded-full",
-          urgent
-            ? "bg-gradient-to-r from-red-500 to-rose-400 shadow-[0_0_18px_rgba(244,63,94,0.5)]"
-            : warn
-              ? "bg-gradient-to-r from-amber-500 to-orange-400"
-              : "bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-400",
+          "h-full rounded-full transition-[width] duration-150 ease-linear",
+          urgent ? "bg-destructive" : warn ? "bg-warning" : "bg-primary",
         )}
-        animate={{ width: `${progress * 100}%` }}
-        transition={{ duration: 0.12, ease: "linear" }}
+        style={{ width: `${progress * 100}%` }}
       />
     </div>
   );
 }
 
-/** Angka detik besar yang beranimasi tiap detik. */
-export function TimerDigits({ deadlineMs, totalMs }: { deadlineMs?: number; totalMs: number }) {
-  const [sec, setSec] = React.useState(Math.ceil(totalMs / 1000));
-
-  React.useEffect(() => {
-    if (!deadlineMs) return;
-    const update = () => setSec(Math.max(0, Math.ceil(remainingMs(deadlineMs) / 1000)));
-    update();
-    const id = setInterval(update, 200);
-    return () => clearInterval(id);
-  }, [deadlineMs]);
-
-  const scale = useMotionValue(1);
-  const mvSec = useMotionValue(sec);
-
-  React.useEffect(() => {
-    const controls = animate(mvSec, sec, { duration: 0.3 });
-    animate(scale, [1.25, 1], { duration: 0.3, ease: "easeOut" });
-    return controls.stop;
-  }, [sec, mvSec, scale]);
-
-  const text = useTransform(mvSec, (v) => String(Math.max(0, Math.round(v))));
+/** Angka detik besar — pop halus tiap detik lewat remount key (tanpa animasi bocor). */
+export function TimerDigits({ deadlineMs }: { deadlineMs?: number }) {
+  const remaining = useServerCountdown(deadlineMs);
+  const sec = Math.max(0, Math.ceil(remaining / 1000));
+  const urgent = remaining <= 5000;
 
   return (
     <motion.span
-      style={{ scale, originX: 0.5, originY: 0.5 }}
+      key={sec}
+      initial={{ scale: 1.18, opacity: 0.55 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
       className={cn(
         "inline-block font-display text-2xl font-black tabular-nums sm:text-3xl",
-        sec <= 5 ? "text-red-400" : "text-foreground",
+        urgent && "text-destructive",
       )}
     >
-      <motion.span>{text}</motion.span>
+      {sec}
     </motion.span>
   );
 }

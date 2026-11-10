@@ -23,30 +23,28 @@ export function LeaderboardList({
           <motion.div
             key={e.player_id}
             layout
-            initial={{ opacity: 0, x: -18 }}
+            initial={{ opacity: 0, x: -16 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ type: "spring", stiffness: 350, damping: 30 }}
             className={cn(
               "flex items-center gap-3 rounded-xl border px-4 py-3",
-              me
-                ? "border-violet-400/50 bg-gradient-to-r from-violet-500/20 to-fuchsia-500/10 shadow-lg shadow-violet-500/10"
-                : "border-border bg-white/[0.03]",
+              me ? "border-primary/45 bg-primary/10" : "border-border bg-foreground/[0.03]",
             )}
           >
             <span
               className={cn(
                 "grid size-8 shrink-0 place-items-center rounded-lg font-display text-sm font-extrabold tabular-nums",
-                e.rank === 1 && "bg-gradient-to-br from-amber-300 to-yellow-500 text-yellow-950",
-                e.rank === 2 && "bg-gradient-to-br from-slate-200 to-slate-400 text-slate-900",
-                e.rank === 3 && "bg-gradient-to-br from-orange-300 to-amber-600 text-amber-950",
-                e.rank > 3 && "bg-white/8 text-muted-foreground",
+                e.rank === 1 && "bg-gold text-gold-fg",
+                e.rank === 2 && "bg-silver text-silver-fg",
+                e.rank === 3 && "bg-bronze text-bronze-fg",
+                e.rank > 3 && "bg-foreground/[0.07] text-muted-foreground",
               )}
             >
               {e.rank}
             </span>
-            <span className={cn("min-w-0 flex-1 truncate font-semibold", me && "text-violet-200")}>{e.nickname}</span>
+            <span className="min-w-0 flex-1 truncate font-semibold">{e.nickname}</span>
             {me && (
-              <span className="rounded-full bg-violet-500/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-violet-300">
+              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
                 Anda
               </span>
             )}
@@ -58,32 +56,29 @@ export function LeaderboardList({
   );
 }
 
-/** Podium 3 besar dengan animasi. */
+/** Podium 3 besar — blok flat: emas, perak, perunggu. */
 const PODIUM_STYLE = [
   {
     icon: Trophy,
     height: "h-36",
-    grad: "from-amber-300 via-yellow-400 to-amber-600",
-    text: "text-amber-300",
-    order: 2,
+    medal: "bg-gold text-gold-fg",
+    iconColor: "text-gold",
     rankLabel: "1",
     big: true,
   },
   {
     icon: Medal,
     height: "h-28",
-    grad: "from-slate-200 via-slate-300 to-slate-500",
-    text: "text-slate-200",
-    order: 1,
+    medal: "bg-silver text-silver-fg",
+    iconColor: "text-silver",
     rankLabel: "2",
     big: false,
   },
   {
     icon: Medal,
     height: "h-24",
-    grad: "from-orange-300 via-amber-500 to-orange-700",
-    text: "text-orange-300",
-    order: 3,
+    medal: "bg-bronze text-bronze-fg",
+    iconColor: "text-bronze",
     rankLabel: "3",
     big: false,
   },
@@ -99,7 +94,7 @@ export function PodiumView({
   const entries = podium.slice(0, 3);
   if (entries.length === 0) return null;
 
-  // podium render: 2, 1, 3
+  // Urutan render: 2, 1, 3
   const slots = [
     entries.find((e) => e.rank === 2) ?? entries[1],
     entries.find((e) => e.rank === 1) ?? entries[0],
@@ -116,36 +111,25 @@ export function PodiumView({
             key={entry.player_id}
             initial={{ opacity: 0, y: 60 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i === 1 ? 0.35 : i * 0.2, type: "spring", stiffness: 120, damping: 16 }}
-            className={cn("flex w-28 flex-col items-center sm:w-40", i === 1 && "-mb-1 sm:w-48")}
+            transition={{ delay: i === 1 ? 0.3 : i * 0.2, type: "spring", stiffness: 120, damping: 16 }}
+            className={cn("flex w-28 flex-col items-center sm:w-40", i === 1 && "sm:w-48")}
           >
             <motion.div
               animate={i === 1 ? { y: [0, -8, 0] } : undefined}
               transition={{ repeat: Infinity, duration: 2.6, ease: "easeInOut" }}
-              className={cn("mb-2 grid size-11 place-items-center rounded-full border-2 sm:size-14", cfg.text, i === 1 ? "border-current bg-white/5" : "border-white/15 bg-white/[0.03]")}
+              className={cn("mb-2 grid size-11 place-items-center rounded-full border-2 border-current sm:size-14", cfg.iconColor)}
             >
-              <cfg.icon className={cn(cfg.text, i === 1 ? "size-7 sm:size-9" : "size-5 sm:size-7")} strokeWidth={2.2} />
+              <cfg.icon className={cn(i === 1 ? "size-6 sm:size-8" : "size-5 sm:size-7")} strokeWidth={2.2} />
             </motion.div>
-            <p className={cn("max-w-full truncate px-1 font-display font-bold", i === 1 ? "text-base sm:text-xl" : "text-sm", me && "text-violet-300")}>
+            <p className={cn("max-w-full truncate px-1 font-display font-bold", i === 1 ? "text-base sm:text-xl" : "text-sm")}>
               {entry.nickname}
-              {me && <Crown className="ml-1 inline size-4 text-violet-300" />}
+              {me && <Crown className="ml-1 inline size-4 text-primary" />}
             </p>
             <p className="mb-3 font-display text-sm font-extrabold tabular-nums text-muted-foreground">
               {entry.score.toLocaleString("id-ID")}
             </p>
-            <div
-              className={cn(
-                "flex w-full items-start justify-center rounded-t-2xl border-x border-t border-white/10 bg-gradient-to-b pt-3",
-                cfg.grad,
-                cfg.height,
-              )}
-            >
-              <span
-                className={cn(
-                  "font-display font-black tabular-nums drop-shadow",
-                  cfg.big ? "text-5xl text-white/95" : "text-3xl text-black/60",
-                )}
-              >
+            <div className={cn("flex w-full items-start justify-center rounded-t-2xl pt-3", cfg.medal, cfg.height)}>
+              <span className={cn("font-display font-black tabular-nums", cfg.big ? "text-5xl" : "text-3xl")}>
                 {cfg.rankLabel}
               </span>
             </div>

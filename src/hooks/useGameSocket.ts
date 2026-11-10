@@ -63,8 +63,14 @@ export function useGameSocket(wsUrl: string | null) {
     setStore(storeRef.current);
   }, []);
 
+  /** Waktu pesan WS terakhir diterima + throttle untuk watchdog. */
+  const lastEventAtRef = React.useRef(Date.now());
+  const lastNudgeRef = React.useRef(0);
+  const lastForceRef = React.useRef(0);
+
   const handleEvent = React.useCallback(
     (e: WsEvent) => {
+      lastEventAtRef.current = Date.now();
       switch (e.event) {
         case "STATE_SYNC": {
           const p: StateSyncPayload = e.payload;
@@ -200,6 +206,45 @@ export function useGameSocket(wsUrl: string | null) {
       socketRef.current = null;
     };
   }, [wsUrl, handleEvent]);
+
+  /**
+   * Watchdog anti-stuck: bila fase QUESTION/PREVIEW sudah melewati deadline
+   * server tetapi event penutup (ANSWER_SUMMARY / QUESTION_END / QUESTION_START)
+   * tidak kunjung datang, minta STATE_SYNC berkala dan reconnect bila perlu.
+   * Ini menyembuhkan layar yang "menggantung" di angka 0 tanpa reload manual.
+   */
+  React.useEffect(() => {
+    const id = setInterval(() => {
+      const sock = socketRef.current;
+      if (!sock || sock.status !== "open") return;
+      const s = storeRef.current;
+      const now = nowServerMs();
+      const wall = Date.now();
+
+      const stuckMs =
+        s.status === "QUESTION" && s.deadlineMs
+          ? now - s.deadlineMs
+          : s.status === "PREVIEW" && s.previewEndsAtMs
+            ? now - s.previewEndsAtMs
+            : 0;
+
+      // Belum lewat deadline + toleransi 1.5 s → tidak perlu apa-apa.
+      if (stuckMs <= 1500) return;
+
+      // Stuck terlalu lama → koneksi kemungkinan mati senyap, sambung ulang.
+      if (stuckMs > 12000 && wall - lastForceRef.current > 15000) {
+        lastForceRef.current = wall;
+        sock.forceReconnect();
+        return;
+      }
+      // Minta state terbaru dari server (server membalas STATE_SYNC).
+      if (wall - lastNudgeRef.current > 2500) {
+        lastNudgeRef.current = wall;
+        sock.send("SYNC");
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const send = React.useCallback((event: string, payload?: object) => socketRef.current?.send(event, payload), []);
   const forceReconnect = React.useCallback(() => socketRef.current?.forceReconnect(), []);

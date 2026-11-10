@@ -8,13 +8,13 @@ export function Logo({ className, compact = false }: { className?: string; compa
       <motion.div
         whileHover={{ rotate: -8, scale: 1.05 }}
         transition={{ type: "spring", stiffness: 400, damping: 15 }}
-        className="relative grid size-9 place-items-center rounded-xl bg-gradient-to-br from-violet-500 via-fuchsia-500 to-cyan-400 shadow-lg shadow-fuchsia-500/30"
+        className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground"
       >
-        <Zap className="size-5 text-white" strokeWidth={2.6} />
+        <Zap className="size-5" strokeWidth={2.6} />
       </motion.div>
       {!compact && (
         <span className="font-display text-xl font-extrabold tracking-tight">
-          Quiz<span className="bg-gradient-to-r from-violet-400 to-cyan-300 bg-clip-text text-transparent">Live</span>
+          Quiz<span className="text-primary">Live</span>
         </span>
       )}
     </div>
