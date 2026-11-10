@@ -36,11 +36,11 @@ npm run build    # output ke dist/
 
 ## Docker
 
-Build image dan jalankan container nginx:
+Build image dan jalankan container (Node `serve`, port 7005):
 
 ```bash
 docker build -t quizlive-frontend .
-docker run -d -p 8080:80 --name quizlive-frontend quizlive-frontend
+docker run -d -p 8080:7005 --name quizlive-frontend quizlive-frontend
 ```
 
 atau dengan compose:
@@ -49,9 +49,8 @@ atau dengan compose:
 docker compose up -d --build
 ```
 
-Frontend akan tersedia di `http://localhost:8080`. Image memakai multi-stage build
-(Node untuk build Vite → nginx alpine untuk serving) dengan gzip, cache immutable
-untuk asset ber-hash, dan fallback SPA.
+Multi-stage build: Node untuk build Vite, lalu `serve -s dist` untuk serving
+(fallback SPA otomatis). Siap dipakai di Dokploy — cukup arahkan port ke `7005`.
 
 ## Halaman
 
