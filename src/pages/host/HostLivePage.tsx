@@ -1,0 +1,434 @@
+import * as React from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  ChevronRight,
+  Copy,
+  Eye,
+  Flag,
+  Link2,
+  Loader2,
+  LogOut,
+  RefreshCw,
+  Smartphone,
+  Users,
+} from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Logo } from "@/components/Logo";
+import { ConnectionPill, PageTransition } from "@/components/common";
+import { CountdownBar, TimerDigits } from "@/components/game/Countdown";
+import { LeaderboardList, PodiumView } from "@/components/game/Leaderboard";
+import { AnswerBars, OptionGrid, QuestionHeader } from "@/components/game/OptionGrid";
+import { useGameSocket } from "@/hooks/useGameSocket";
+import { useToast } from "@/components/toast";
+import { clearHostCreds, loadHostCreds } from "@/lib/storage";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { API_BASE_URL } from "@/lib/api";
+import { cn } from "@/lib/utils";
+
+export default function HostLivePage() {
+  const { pin } = useParams<{ pin: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [endConfirm, setEndConfirm] = React.useState(false);
+  const creds = loadHostCreds();
+
+  // Tanpa kredensial host yang cocok → kembali ke pustaka.
+  React.useEffect(() => {
+    if (!pin) navigate("/host", { replace: true });
+    else if (!creds || creds.pin !== pin) navigate("/host", { replace: true });
+  }, [pin, creds, navigate]);
+
+  const { store, wsStatus, send, forceReconnect } = useGameSocket(creds && creds.pin === pin ? creds.ws_url : null);
+
+  // Tangani error WS terakhir → toast.
+  const lastErrRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (store.lastError && store.lastError.message !== lastErrRef.current) {
+      lastErrRef.current = store.lastError.message;
+      toast("error", `Error: ${store.lastError.code}`, store.lastError.message);
+    }
+  }, [store.lastError, toast]);
+
+  function copyPin() {
+    const digits = (pin ?? "").split("").join(" ");
+    navigator.clipboard?.writeText(pin ?? "").then(
+      () => toast("success", "PIN tersalin", digits),
+      () => toast("error", "Gagal menyalin"),
+    );
+  }
+
+  function copyJoinLink() {
+    const url = `${window.location.origin}${window.location.pathname}#/join`;
+    navigator.clipboard?.writeText(url).then(
+      () => toast("success", "Link join tersalin", url),
+      () => toast("error", "Gagal menyalin"),
+    );
+  }
+
+  function startGame() {
+    if (!send("START_GAME")) toast("warning", "Belum terhubung", "Tunggu koneksi tersambung lalu coba lagi.");
+  }
+  function nextQuestion() {
+    send("NEXT_QUESTION");
+  }
+  function endGame() {
+    setEndConfirm(false);
+    send("END_GAME");
+  }
+
+  function exitToLibrary() {
+    clearHostCreds();
+    navigate("/host");
+  }
+
+  if (!pin) return null;
+
+  const view =
+    store.status === "PODIUM" ? "podium" : store.status === "LOBBY" ? "lobby" : store.status === "RESULT" ? "result" : store.status === "PREVIEW" ? "preview" : "question";
+
+  return (
+    <div className="flex min-h-dvh flex-col">
+      {/* Header */}
+      <header className="sticky top-0 z-40 border-b border-white/5 bg-background/70 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <Link to="/host">
+              <Logo compact />
+            </Link>
+            <div className="hidden flex-col sm:flex">
+              <span className="font-display text-sm font-bold leading-tight">{store.quizTitle || creds?.quiz_title || "Sesi Live"}</span>
+              <span className="text-[11px] text-muted-foreground">Mode Host</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <ConnectionPill status={wsStatus} />
+            {wsStatus !== "open" && (
+              <Button variant="outline" size="iconSm" onClick={forceReconnect} title="Sambung ulang">
+                <RefreshCw />
+              </Button>
+            )}
+            <div className="hidden items-center gap-1.5 rounded-xl border border-border bg-card/60 px-3 py-1.5 font-display text-sm font-bold tabular-nums sm:flex">
+              PIN {pin}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <PageTransition>
+        <AnimatePresence mode="wait">
+          {/* ------------------------------ LOBBY ------------------------------ */}
+          {view === "lobby" && (
+            <motion.section
+              key="lobby"
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[1.2fr_1fr]"
+            >
+              {/* Kartu PIN */}
+              <div className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-b from-violet-500/10 to-transparent p-8 text-center sm:p-12">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-violet-500/15 to-transparent blur-2xl" />
+                <p className="text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Kode Pin</p>
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 18, delay: 0.1 }}
+                  className="relative mx-auto mt-4 w-fit"
+                >
+                  <span className="font-display text-6xl font-black tracking-[0.18em] tabular-nums sm:text-8xl">
+                    {pin}
+                  </span>
+                  <motion.span
+                    aria-hidden
+                    className="absolute inset-x-0 -bottom-2 h-1 rounded-full bg-gradient-to-r from-violet-400 via-fuchsia-400 to-cyan-300"
+                    animate={{ opacity: [0.5, 1, 0.5] }}
+                    transition={{ repeat: Infinity, duration: 2.4 }}
+                  />
+                </motion.div>
+                <p className="mt-8 flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Smartphone className="size-4" />
+                  Pemain bergabung di <span className="font-semibold text-foreground">QuizLive</span> dengan PIN ini
+                </p>
+                <div className="mt-5 flex flex-wrap justify-center gap-3">
+                  <Button variant="outline" onClick={copyPin}>
+                    <Copy /> Salin PIN
+                  </Button>
+                  <Button variant="outline" onClick={copyJoinLink}>
+                    <Link2 /> Link Join
+                  </Button>
+                </div>
+              </div>
+
+              {/* Panel pemain */}
+              <div className="rounded-3xl border border-border bg-card/60 p-6">
+                <div className="mb-5 flex items-center justify-between">
+                  <h2 className="flex items-center gap-2 font-display text-lg font-bold">
+                    <Users className="size-5 text-violet-300" /> Ruang Tunggu
+                  </h2>
+                  <Badge variant="secondary" className="px-3 py-1 font-display text-sm">
+                    {store.players.length} pemain
+                  </Badge>
+                </div>
+
+                {store.players.length === 0 ? (
+                  <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
+                    <motion.div
+                      animate={{ rotate: [0, -10, 10, 0] }}
+                      transition={{ repeat: Infinity, duration: 3.2 }}
+                      className="rounded-2xl bg-white/[0.04] p-4"
+                    >
+                      <Eye className="size-7 opacity-60" />
+                    </motion.div>
+                    <p className="text-sm">Menunggu pemain pertama…</p>
+                  </div>
+                ) : (
+                  <div className="flex max-h-72 flex-wrap gap-2.5 overflow-y-auto pr-1">
+                    <AnimatePresence>
+                      {store.players.map((p) => (
+                        <motion.div
+                          key={p.player_id}
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0, opacity: 0 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                          className="flex items-center gap-2 rounded-xl border border-border bg-white/[0.04] px-3.5 py-2.5"
+                        >
+                          <span className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-violet-500/40 to-fuchsia-500/40 font-display text-xs font-extrabold uppercase text-violet-100">
+                            {p.nickname.slice(0, 2)}
+                          </span>
+                          <span className="max-w-36 truncate text-sm font-semibold">{p.nickname}</span>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                )}
+
+                <div className="mt-8 space-y-3">
+                  <Button
+                    size="lg"
+                    className="w-full text-base"
+                    disabled={store.players.length < 1 || wsStatus !== "open"}
+                    onClick={startGame}
+                  >
+                    {store.players.length < 1 ? (
+                      <>
+        <Loader2 className="animate-spin" /> Butuh minimal 1 pemain
+                      </>
+                    ) : (
+                      <>
+                        Mulai Permainan <ChevronRight />
+                      </>
+                    )}
+                  </Button>
+                  <Button variant="outlineDestructive" size="sm" className="w-full" onClick={() => setEndConfirm(true)}>
+                    <Flag /> Akhiri Sesi
+                  </Button>
+                </div>
+              </div>
+            </motion.section>
+          )}
+
+          {/* --------------------------- PREVIEW ------------------------------- */}
+          {view === "preview" && store.question && (
+            <motion.section
+              key={`preview-${store.question.index}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex min-h-[70vh] flex-col items-center justify-center"
+            >
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-2 text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground"
+              >
+                Bersiap — Soal {store.question.index + 1} dari {store.question.total}
+              </motion.p>
+              <motion.div
+                initial={{ scale: 0.4, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                className="relative"
+              >
+                <span className="font-display text-[9rem] font-black leading-none text-transparent sm:text-[12rem]">
+                  <span className="bg-gradient-to-b from-violet-300 via-fuchsia-300 to-cyan-300 bg-clip-text">
+                {String(Math.max(1, store.question.index + 1)).padStart(2, "0")}
+                  </span>
+                </span>
+                <motion.span
+                  aria-hidden
+                  className="absolute -inset-8 -z-10 rounded-full bg-violet-500/20 blur-3xl"
+                  animate={{ opacity: [0.4, 0.9, 0.4], scale: [0.9, 1.1, 0.9] }}
+                  transition={{ repeat: Infinity, duration: 1.8 }}
+                />
+              </motion.div>
+              <p className="mt-4 text-sm text-muted-foreground">Pertanyaan segera dimulai…</p>
+            </motion.section>
+          )}
+
+          {/* --------------------------- QUESTION / RESULT --------------------------- */}
+          {(view === "question" || view === "result") && store.question && (
+            <motion.section
+              key={`q-${store.question.index}`}
+              initial={{ opacity: 0, y: 22 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="space-y-6"
+            >
+              {/* Timer + jumlah jawaban */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-4">
+                  <TimerDigits deadlineMs={view === "question" ? store.deadlineMs : undefined} totalMs={store.question.time_limit_sec * 1000} />
+                  <span className="text-sm text-muted-foreground">detik</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={store.answeredCount >= store.totalPlayers && store.totalPlayers > 0 ? "success" : "secondary"} className="px-3 py-1.5">
+                    <Users className="size-3.5" />
+                    {store.answeredCount}/{store.totalPlayers} menjawab
+                  </Badge>
+                  <Badge variant="accent" className="px-3 py-1.5">
+                    {store.question.time_limit_sec} detik
+                  </Badge>
+                </div>
+              </div>
+              {view === "question" && (
+                <CountdownBar deadlineMs={store.deadlineMs} totalMs={store.question.time_limit_sec * 1000} />
+              )}
+
+              <QuestionHeader question={store.question} eager />
+
+              <OptionGrid
+                question={store.question}
+                mode="host"
+                reveal={view === "result"}
+                correctOptionId={store.correctOptionId}
+              />
+
+              {/* Ringkasan setelah semua menjawab */}
+              {view === "result" && (
+                <motion.div
+                  initial={{ opacity: 0, y: 18 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2"
+                >
+                  <div className="rounded-2xl border border-border bg-card/60 p-5">
+                    <AnswerBars
+                      counts={store.answerCounts ?? {}}
+                      options={store.question.options}
+                      correctOptionId={store.correctOptionId}
+                    />
+                  </div>
+                  <div className="rounded-2xl border border-border bg-card/60 p-5">
+                    <h3 className="mb-4 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                      Klasemen Sementara
+                    </h3>
+                    <LeaderboardList entries={store.leaderboard} />
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Kontrol host */}
+              <div className="sticky bottom-4 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/80 p-3.5 backdrop-blur-xl">
+                <p className="px-2 text-xs text-muted-foreground">
+                  {view === "question" ? "Menunggu jawaban pemain…" : store.isLast ? "Soal terakhir — lanjutkan untuk podium." : "Lanjutkan ke soal berikutnya."}
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="outlineDestructive" size="sm" onClick={() => setEndConfirm(true)}>
+                    <Flag /> Akhiri
+                  </Button>
+                  {view === "result" && (
+                    <Button size="lg" onClick={nextQuestion} disabled={wsStatus !== "open"}>
+                      {store.isLast ? (
+                        <>
+                          Lihat Podium <ChevronRight />
+                        </>
+                      ) : (
+                        <>
+                          Soal Berikutnya <ChevronRight />
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </motion.section>
+          )}
+
+          {/* ------------------------------ PODIUM ------------------------------ */}
+          {view === "podium" && (
+            <motion.section
+              key="podium"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mx-auto w-full max-w-4xl"
+            >
+              <div className="mb-14 text-center">
+                <motion.h1
+                  initial={{ scale: 0.7, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 14 }}
+                  className="bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-400 bg-clip-text font-display text-5xl font-black text-transparent sm:text-6xl"
+                >
+                  Permainan Selesai!
+                </motion.h1>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {store.totalPlayers} pemain · {store.quizTitle || creds?.quiz_title}
+                </p>
+              </div>
+
+              <PodiumView podium={store.podium ?? []} />
+
+              {store.finalLeaderboard && store.finalLeaderboard.length > 3 && (
+                <div className="mt-16 rounded-2xl border border-border bg-card/60 p-6">
+                  <h3 className="mb-4 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                    Klasemen Akhir
+                  </h3>
+                  <LeaderboardList entries={store.finalLeaderboard} />
+                </div>
+              )}
+
+              <div className="mt-10 flex justify-center gap-3">
+                <Button variant="outline" onClick={() => navigate("/host")}>
+                  <LogOut /> Kembali ke Pustaka
+                </Button>
+                <Button onClick={() => navigate("/host")}>
+                  Buat Sesi Baru <ChevronRight />
+                </Button>
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
+      </PageTransition>
+
+      {/* Konfirmasi akhiri game */}
+      <Dialog open={endConfirm} onOpenChange={setEndConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Akhiri permainan sekarang?</DialogTitle>
+            <DialogDescription>
+              Permainan akan langsung berakhir dan podium final akan ditampilkan. Skor saat ini menjadi skor akhir.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEndConfirm(false)}>
+              Batal
+            </Button>
+            <Button variant="destructive" onClick={endGame}>
+              <Flag /> Ya, Akhiri
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
