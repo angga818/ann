@@ -7,6 +7,8 @@ import HostDashboardPage from "@/pages/host/HostDashboardPage";
 import HostLibraryPage from "@/pages/host/HostLibraryPage";
 import QuizEditorPage from "@/pages/host/QuizEditorPage";
 import HostLivePage from "@/pages/host/HostLivePage";
+import HostReportsPage from "@/pages/host/HostReportsPage";
+import HostReportDetailPage from "@/pages/host/HostReportDetailPage";
 import JoinPage from "@/pages/player/JoinPage";
 import PlayerLivePage from "@/pages/player/PlayerLivePage";
 
@@ -24,6 +26,8 @@ export default function App() {
               <Route path="/host/quiz/new" element={<QuizEditorPage />} />
               <Route path="/host/quiz/:quizId" element={<QuizEditorPage />} />
               <Route path="/host/live/:pin" element={<HostLivePage />} />
+              <Route path="/host/reports" element={<HostReportsPage />} />
+              <Route path="/host/reports/:reportId" element={<HostReportDetailPage />} />
               <Route path="/join" element={<JoinPage />} />
               <Route path="/join/:pin" element={<JoinPage />} />
               <Route path="/play/:pin" element={<PlayerLivePage />} />

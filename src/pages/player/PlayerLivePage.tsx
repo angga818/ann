@@ -9,6 +9,8 @@ import {
   RefreshCw,
   Trophy,
   Users,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Logo } from "@/components/Logo";
@@ -17,12 +19,27 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { CountdownBar, PreviewCountdown, TimerRing } from "@/components/game/Countdown";
 import { CelebrationBurst } from "@/components/game/Celebration";
 import { LeaderboardList, PodiumView } from "@/components/game/Leaderboard";
+import { Top3Strip } from "@/components/game/Top3Strip";
 import { OptionGrid, QuestionHeader } from "@/components/game/OptionGrid";
 import { useGameSocket } from "@/hooks/useGameSocket";
 import { useServerCountdown } from "@/hooks/useServerCountdown";
 import { useToast } from "@/components/toast";
-import { AvatarIcon, avatarForPlayer } from "@/lib/avatars";
+import {
+  PlayerAvatar,
+  avatarForPlayer,
+  customAvatarRef,
+  loadCustomAvatarChoice,
+  type AvatarRef,
+} from "@/lib/avatars";
 import { clearPlayerCreds, loadPlayerCreds } from "@/lib/storage";
+import {
+  loadSoundEnabled,
+  playClick,
+  playCorrect,
+  playTimeUp,
+  playWrong,
+  saveSoundEnabled,
+} from "@/lib/sound";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -47,11 +64,16 @@ export default function PlayerLivePage() {
   const remaining = useServerCountdown(store.deadlineMs);
   const timeUp = store.status === "QUESTION" && !!store.deadlineMs && remaining <= 0;
 
-  // Avatar: pemain lain → hash player_id; diri sendiri → pilihan di halaman join.
+  // Avatar: pemain lain → hash player_id; diri sendiri → pilihan di halaman join
+  // (karakter preset atau foto hasil unggahan, tersimpan lokal).
+  const [customAvatar] = React.useState(() => loadCustomAvatarChoice());
+  const myAvatar: AvatarRef = React.useMemo(
+    () => (customAvatar ? customAvatarRef(customAvatar) : (creds?.avatarId ?? 0)),
+    [customAvatar, creds],
+  );
   const getAvatar = React.useCallback(
-    (playerId: string) =>
-      playerId === creds?.player_id ? (creds?.avatarId ?? 0) : avatarForPlayer(playerId),
-    [creds],
+    (playerId: string) => (playerId === creds?.player_id ? myAvatar : avatarForPlayer(playerId)),
+    [creds, myAvatar],
   );
 
   // Error WS → toast sekali per pesan.
@@ -72,8 +94,29 @@ export default function PlayerLivePage() {
     }
   }, [store.lastError, toast]);
 
+  // Efek suara: bisa dimatikan pemain, diputar sekali per soal saat hasil keluar.
+  const [soundOn, setSoundOn] = React.useState(() => loadSoundEnabled());
+  const soundPlayedRef = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    if (store.status !== "RESULT" || !store.question || !store.you) return;
+    if (soundPlayedRef.current === store.question.index) return;
+    soundPlayedRef.current = store.question.index;
+    const you = store.you;
+    if (!you.answered) playTimeUp();
+    else if (you.is_correct) playCorrect();
+    else playWrong();
+  }, [store.status, store.question, store.you]);
+
+  function toggleSound() {
+    const next = !soundOn;
+    setSoundOn(next);
+    saveSoundEnabled(next);
+    if (next) playClick();
+  }
+
   function submitAnswer(optionId: string) {
     if (store.yourAnswer || store.status !== "QUESTION" || timeUp) return;
+    playClick();
     const ok = send("SUBMIT_ANSWER", { index: store.index, option_id: optionId });
     if (!ok) toast("warning", "Belum terhubung", "Jawaban tidak terkirim — tunggu koneksi pulih.");
   }
@@ -92,7 +135,6 @@ export default function PlayerLivePage() {
   if (!pin) return null;
 
   const you = store.you;
-  const myAvatar = creds?.avatarId ?? 0;
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -112,6 +154,15 @@ export default function PlayerLivePage() {
                 <RefreshCw />
               </Button>
             )}
+            <Button
+              variant="ghost"
+              size="iconSm"
+              onClick={toggleSound}
+              title={soundOn ? "Matikan efek suara" : "Nyalakan efek suara"}
+              aria-pressed={soundOn}
+            >
+              {soundOn ? <Volume2 /> : <VolumeX className="text-muted-foreground" />}
+            </Button>
             <ThemeToggle />
           </div>
         </div>
@@ -133,7 +184,7 @@ export default function PlayerLivePage() {
                 transition={{ repeat: Infinity, duration: 3.2, ease: "easeInOut" }}
                 className="grid size-24 place-items-center rounded-3xl border-4 border-primary/20 bg-primary-soft"
               >
-                <AvatarIcon id={myAvatar} className="size-20" />
+                <PlayerAvatar avatar={myAvatar} className="size-20" alt={creds?.nickname ?? ""} />
               </motion.div>
 
               <h1 className="mt-7 font-display text-3xl font-black tracking-tight">
@@ -177,7 +228,7 @@ export default function PlayerLivePage() {
                             me ? "border-primary/45 bg-primary-soft text-primary" : "border-border bg-card text-foreground/80",
                           )}
                         >
-                          <AvatarIcon id={getAvatar(p.player_id)} className="size-6" />
+                          <PlayerAvatar avatar={getAvatar(p.player_id)} className="size-6" />
                           {p.nickname}
                         </motion.span>
                       );
@@ -348,11 +399,16 @@ export default function PlayerLivePage() {
                   <h3 className="mb-4 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
                     Top 10
                   </h3>
-                  <LeaderboardList
-                    entries={store.leaderboard}
-                    highlightPlayerId={creds?.player_id}
-                    getAvatar={getAvatar}
-                  />
+                  <div className="space-y-4">
+                    <Top3Strip entries={store.leaderboard} highlightPlayerId={creds?.player_id} getAvatar={getAvatar} />
+                    <LeaderboardList
+                      entries={store.leaderboard}
+                      highlightPlayerId={creds?.player_id}
+                      getAvatar={getAvatar}
+                      prevRanks={store.prevRanks}
+                      prevScores={store.prevScores}
+                    />
+                  </div>
                 </motion.div>
               )}
 
@@ -408,6 +464,8 @@ export default function PlayerLivePage() {
                     entries={store.finalLeaderboard}
                     highlightPlayerId={creds?.player_id}
                     getAvatar={getAvatar}
+                    prevRanks={store.prevRanks}
+                    prevScores={store.prevScores}
                   />
                 </motion.div>
               )}

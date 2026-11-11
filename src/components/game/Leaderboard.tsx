@@ -1,26 +1,69 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Crown, Trophy } from "lucide-react";
+import { ArrowDown, ArrowUp, Crown, Trophy } from "lucide-react";
 import type { LeaderboardEntry } from "@/types";
 import { AnimatedNumber } from "@/components/common";
 import { CelebrationBurst, CelebrationRain } from "@/components/game/Celebration";
-import { AvatarIcon, avatarForPlayer } from "@/lib/avatars";
+import { PlayerAvatar, avatarForPlayer, type AvatarRef } from "@/lib/avatars";
 import { cn } from "@/lib/utils";
+
+/** Chip kecil perubahan peringkat/point — pop-in spring setelah update. */
+function DeltaChips({ rankUp, scoreDelta }: { rankUp: number; scoreDelta: number }) {
+  if (rankUp === 0 && scoreDelta <= 0) return null;
+  return (
+    <span className="flex shrink-0 items-center gap-1">
+      {rankUp !== 0 && (
+        <motion.span
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 500, damping: 22, delay: 0.12 }}
+          className={cn(
+            "grid place-items-center rounded-full px-1.5 py-0.5 font-display text-[10px] font-bold leading-none tabular-nums",
+            rankUp > 0 ? "bg-success-soft text-success" : "bg-coral-soft text-coral",
+          )}
+          title={rankUp > 0 ? `Naik ${rankUp} peringkat` : `Turun ${-rankUp} peringkat`}
+        >
+          {rankUp > 0 ? <ArrowUp className="size-2.5" /> : <ArrowDown className="size-2.5" />}
+          {Math.abs(rankUp)}
+        </motion.span>
+      )}
+      {scoreDelta > 0 && (
+        <motion.span
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 500, damping: 22, delay: 0.2 }}
+          className="rounded-full bg-primary-soft px-1.5 py-0.5 font-display text-[10px] font-bold leading-none tabular-nums text-primary"
+          title={`+${scoreDelta.toLocaleString("id-ID")} poin`}
+        >
+          +{scoreDelta.toLocaleString("id-ID")}
+        </motion.span>
+      )}
+    </span>
+  );
+}
 
 /**
  * Baris leaderboard: avatar, peringkat, nickname, skor dengan animasi.
- * Reorder (perubahan posisi) dianimasikan lewat layout transition.
+ * Reorder (perubahan posisi) dianimasikan lewat layout transition, dan chip
+ * delta menunjukkan berapa peringkat naik/turun + poin yang baru didapat
+ * sejak pembaruan klasemen sebelumnya.
  */
 export function LeaderboardList({
   entries,
   highlightPlayerId,
   maxRows = 10,
   getAvatar,
+  prevRanks,
+  prevScores,
 }: {
   entries: LeaderboardEntry[];
   highlightPlayerId?: string;
   maxRows?: number;
-  /** Override avatar (mis. untuk avatar pilihan sendiri). */
-  getAvatar?: (playerId: string) => number;
+  /** Override avatar (mis. untuk avatar unggahan sendiri). */
+  getAvatar?: (playerId: string) => AvatarRef;
+  /** Peta peringkat sebelum update (playerId → rank) — untuk chip ▲/▼. */
+  prevRanks?: Record<string, number>;
+  /** Peta skor sebelum update (playerId → score) — untuk chip +poin. */
+  prevScores?: Record<string, number>;
 }) {
   const rows = entries.slice(0, maxRows);
   return (
@@ -28,6 +71,10 @@ export function LeaderboardList({
       <AnimatePresence initial={false} mode="popLayout">
         {rows.map((e) => {
           const me = e.player_id === highlightPlayerId;
+          const prevRank = prevRanks?.[e.player_id];
+          const rankUp = prevRank !== undefined ? prevRank - e.rank : 0;
+          const scoreDelta =
+            prevScores !== undefined ? e.score - (prevScores[e.player_id] ?? 0) : 0;
           return (
             <motion.div
               key={e.player_id}
@@ -57,13 +104,17 @@ export function LeaderboardList({
               >
                 {e.rank}
               </motion.span>
-              <AvatarIcon id={getAvatar ? getAvatar(e.player_id) : avatarForPlayer(e.player_id)} className="size-8" />
+              <PlayerAvatar
+                avatar={getAvatar ? getAvatar(e.player_id) : avatarForPlayer(e.player_id)}
+                className="size-8"
+              />
               <span className="min-w-0 flex-1 truncate text-sm font-semibold">{e.nickname}</span>
               {me && (
                 <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
                   Anda
                 </span>
               )}
+              <DeltaChips rankUp={rankUp} scoreDelta={scoreDelta} />
               <AnimatedNumber value={e.score} className="font-display text-sm font-bold tabular-nums" />
             </motion.div>
           );
@@ -97,7 +148,7 @@ export function PodiumView({
 }: {
   podium: LeaderboardEntry[];
   highlightPlayerId?: string;
-  getAvatar?: (playerId: string) => number;
+  getAvatar?: (playerId: string) => AvatarRef;
 }) {
   const entries = podium.slice(0, 3);
   if (entries.length === 0) return null;
@@ -121,7 +172,7 @@ export function PodiumView({
           const isWinner = rank === 1;
           const cfg = RANK_STYLE[rank] ?? FALLBACK_STYLE;
           const me = entry.player_id === highlightPlayerId;
-          const avatarId = getAvatar ? getAvatar(entry.player_id) : avatarForPlayer(entry.player_id);
+          const avatar = getAvatar ? getAvatar(entry.player_id) : avatarForPlayer(entry.player_id);
           return (
             <motion.div
               key={entry.player_id}
@@ -141,7 +192,7 @@ export function PodiumView({
               >
                 {/* ledakan confetti di sekitar pemenang */}
                 {isWinner && <CelebrationBurst count={26} spread={130} className="pointer-events-none absolute inset-0 z-10" />}
-                <AvatarIcon id={avatarId} className="size-full" />
+                <PlayerAvatar avatar={avatar} className="size-full" />
                 <span
                   className={cn(
                     "absolute -bottom-1.5 grid place-items-center rounded-full font-display text-xs font-bold",

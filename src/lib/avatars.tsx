@@ -1,4 +1,5 @@
 import * as React from "react";
+import { API_BASE_URL } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 /**
@@ -177,6 +178,61 @@ export const AVATARS: AvatarDef[] = [
   },
 ];
 
+/* ----------------------------- avatar kustom ----------------------------- */
+
+/**
+ * Avatar hasil unggahan pemain. `dataUrl` selalu tersedia (hasil crop, disimpan
+ * lokal) sehingga avatar tetap tampil tanpa jaringan; `remoteUrl` adalah URL
+ * dari storage gambar backend (`POST /media/images`, kind "general") dan
+ * dipakai lebih dulu bila ada.
+ */
+export interface CustomAvatar {
+  dataUrl: string;
+  remoteUrl?: string;
+}
+
+/** Referensi avatar: id preset (number) atau gambar hasil unggahan. */
+export type AvatarRef = number | { src: string; fallback?: string };
+
+const CUSTOM_AVATAR_KEY = "quizlive.avatar.custom";
+
+/** URL siap pakai untuk <img> — dukung data:/blob: selain path API relatif. */
+export function resolveAvatarSrc(src: string): string {
+  if (/^(data|blob):/i.test(src) || /^https?:\/\//i.test(src)) return src;
+  return `${API_BASE_URL}${src.startsWith("/") ? "" : "/"}${src}`;
+}
+
+/** Ubah avatar kustom tersimpan menjadi AvatarRef untuk dirender. */
+export function customAvatarRef(c: CustomAvatar): AvatarRef {
+  return c.remoteUrl
+    ? { src: c.remoteUrl, fallback: c.dataUrl }
+    : { src: c.dataUrl };
+}
+
+export function loadCustomAvatarChoice(): CustomAvatar | null {
+  try {
+    const raw = localStorage.getItem(CUSTOM_AVATAR_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<CustomAvatar>;
+    if (typeof parsed.dataUrl !== "string" || !parsed.dataUrl) return null;
+    return {
+      dataUrl: parsed.dataUrl,
+      remoteUrl: typeof parsed.remoteUrl === "string" && parsed.remoteUrl ? parsed.remoteUrl : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function saveCustomAvatarChoice(c: CustomAvatar | null) {
+  try {
+    if (c) localStorage.setItem(CUSTOM_AVATAR_KEY, JSON.stringify(c));
+    else localStorage.removeItem(CUSTOM_AVATAR_KEY);
+  } catch {
+    /* storage penuh / private mode — avatar hanya tidak tersimpan */
+  }
+}
+
 /** Hash string sederhana (FNV-1a). */
 function hashString(s: string): number {
   let h = 2166136261;
@@ -190,6 +246,55 @@ function hashString(s: string): number {
 /** Avatar deterministik seorang pemain (fallback bila tidak memilih sendiri). */
 export function avatarForPlayer(playerId: string): number {
   return hashString(playerId) % AVATARS.length;
+}
+
+/**
+ * Avatar pemain: gambar hasil unggahan bila ada, atau ikon preset. Gambar yang
+ * gagal dimuat (URL backend mati/offline) jatuh ke fallback lalu ke preset.
+ */
+export function PlayerAvatar({
+  avatar,
+  className,
+  ring = false,
+  alt = "",
+}: {
+  avatar: AvatarRef;
+  className?: string;
+  ring?: boolean;
+  alt?: string;
+}) {
+  const candidates = React.useMemo(() => {
+    if (typeof avatar === "number") return [];
+    return [avatar.src, avatar.fallback]
+      .filter((s): s is string => !!s)
+      .map(resolveAvatarSrc);
+  }, [avatar]);
+  const [failedCount, setFailedCount] = React.useState(0);
+  const key = candidates.join("|");
+  React.useEffect(() => setFailedCount(0), [key]);
+
+  const src = candidates[failedCount];
+  if (!src) {
+    return <AvatarIcon id={typeof avatar === "number" ? avatar : 0} className={className} ring={ring} />;
+  }
+
+  return (
+    <span
+      className={cn(
+        "inline-grid shrink-0 place-items-center overflow-hidden rounded-full bg-secondary",
+        ring && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+        className,
+      )}
+    >
+      <img
+        src={src}
+        alt={alt}
+        draggable={false}
+        onError={() => setFailedCount((n) => n + 1)}
+        className="size-full object-cover"
+      />
+    </span>
+  );
 }
 
 /** Ikon avatar dalam lingkaran latar pastel. */

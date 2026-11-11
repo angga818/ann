@@ -1,6 +1,7 @@
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  ChartColumn,
   ChevronRight,
   Copy,
   Eye,
@@ -20,12 +21,14 @@ import { AnimatedNumber, ConnectionPill, PageTransition } from "@/components/com
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CountdownBar, PreviewCountdown, TimerRing } from "@/components/game/Countdown";
 import { LeaderboardList, PodiumView } from "@/components/game/Leaderboard";
+import { Top3Strip } from "@/components/game/Top3Strip";
 import { AnswerBars, OptionGrid, QuestionHeader } from "@/components/game/OptionGrid";
 import { useGameSocket } from "@/hooks/useGameSocket";
 import { useServerCountdown } from "@/hooks/useServerCountdown";
 import { useToast } from "@/components/toast";
 import { AvatarIcon, avatarForPlayer } from "@/lib/avatars";
 import { loadHostCreds, pushActivity } from "@/lib/storage";
+import { saveSessionReport, type ReportQuestion, type SessionReport } from "@/lib/reports";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -69,6 +72,52 @@ export default function HostLivePage() {
       });
     }
   }, [store.status, store.quizTitle, store.totalPlayers, creds]);
+
+  /* ---------------- laporan sesi (Fitur 1) ----------------
+   * Statistik soal direkam saat RESULT (event ANSWER_SUMMARY sudah ada di
+   * store: counts + correctOptionId + totals), snapshot pertama per soal
+   * dipakai agar STATE_SYNC ulang tidak menimpa data. Saat GAME_OVER,
+   * semua snapshot dikompilasi menjadi laporan dan disimpan lokal. */
+  const reportRef = React.useRef<Map<number, ReportQuestion>>(new Map());
+  React.useEffect(() => {
+    if (store.status !== "RESULT" || !store.question || !store.correctOptionId || !store.answerCounts) return;
+    const { question } = store;
+    if (reportRef.current.has(question.index)) return;
+    reportRef.current.set(question.index, {
+      index: question.index,
+      question_text: question.question_text,
+      time_limit_sec: question.time_limit_sec,
+      correct_option_id: store.correctOptionId,
+      counts: { ...store.answerCounts },
+      options: question.options.map((o) => ({ id: o.id, text: o.text, color_index: o.color_index })),
+      total_answers: store.answeredCount,
+      correct_count: store.answerCounts[store.correctOptionId] ?? 0,
+      total_players: store.totalPlayers,
+    });
+  }, [store.status, store.question, store.correctOptionId, store.answerCounts, store.answeredCount, store.totalPlayers]);
+
+  // Kompilasi + simpan laporan sekali saat podium (guard ref: aman StrictMode).
+  const savedReportRef = React.useRef<SessionReport | null>(null);
+  const [savedReportId, setSavedReportId] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (store.status !== "PODIUM" || savedReportRef.current) return;
+    const questions = [...reportRef.current.values()].sort((a, b) => a.index - b.index);
+    if (questions.length === 0) return; // berakhir sebelum ada soal → tanpa laporan
+    const report: SessionReport = {
+      id: `${pin}-${Date.now()}`,
+      pin: pin ?? "",
+      quizTitle: store.quizTitle || creds?.quiz_title || "Sesi Live",
+      endedAtMs: Date.now(),
+      totalPlayers: store.totalPlayers,
+      questions,
+      leaderboard: store.finalLeaderboard ?? store.leaderboard ?? [],
+    };
+    savedReportRef.current = report;
+    saveSessionReport(report);
+    setSavedReportId(report.id);
+    toast("success", "Laporan tersimpan", "Hasil lengkap tersedia di menu Laporan Sesi.");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store.status, store.finalLeaderboard, store.leaderboard, pin]);
 
   // Tangani error WS terakhir → toast.
   const lastErrRef = React.useRef<string | null>(null);
@@ -391,7 +440,14 @@ export default function HostLivePage() {
                     <h3 className="mb-4 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
                       Klasemen Sementara
                     </h3>
-                    <LeaderboardList entries={store.leaderboard} />
+                    <div className="space-y-4">
+                      <Top3Strip entries={store.leaderboard} />
+                      <LeaderboardList
+                        entries={store.leaderboard}
+                        prevRanks={store.prevRanks}
+                        prevScores={store.prevScores}
+                      />
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -458,17 +514,27 @@ export default function HostLivePage() {
                   <h3 className="mb-4 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
                     Klasemen Akhir
                   </h3>
-                  <LeaderboardList entries={store.finalLeaderboard} />
+                  <LeaderboardList
+                    entries={store.finalLeaderboard}
+                    prevRanks={store.prevRanks}
+                    prevScores={store.prevScores}
+                  />
                 </div>
               )}
 
-              <div className="mt-10 flex justify-center gap-3">
+              <div className="mt-10 flex flex-wrap justify-center gap-3">
                 <Button variant="outline" onClick={() => navigate("/host")}>
                   <LogOut /> Kembali ke Dashboard
                 </Button>
-                <Button onClick={() => navigate("/host")}>
-                  Buat Sesi Baru <ChevronRight />
-                </Button>
+                {savedReportId ? (
+                  <Button onClick={() => navigate(`/host/reports/${savedReportId}`)}>
+                    <ChartColumn /> Lihat Laporan
+                  </Button>
+                ) : (
+                  <Button onClick={() => navigate("/host")}>
+                    Buat Sesi Baru <ChevronRight />
+                  </Button>
+                )}
               </div>
             </motion.section>
           )}

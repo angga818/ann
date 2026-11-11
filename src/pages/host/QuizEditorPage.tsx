@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
+  FileUp,
   GripVertical,
   ImagePlus,
   Loader2,
@@ -24,6 +25,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/toast";
+import { ImportQuestionsDialog } from "@/components/host/ImportQuestionsDialog";
+import type { ParsedQuestion } from "@/lib/import/parse";
 import { pushActivity } from "@/lib/storage";
 import { OPTION_STYLES, optionStyle } from "@/lib/option-colors";
 import { cn } from "@/lib/utils";
@@ -398,6 +401,46 @@ export default function QuizEditorPage() {
   const [issues, setIssues] = React.useState<ValidationIssue[]>([]);
   const [loading, setLoading] = React.useState(isEdit);
   const [saving, setSaving] = React.useState(false);
+  const [importOpen, setImportOpen] = React.useState(false);
+
+  /** Soal hasil impor (sudah tervalidasi dialog) → bentuk form editor. */
+  function handleImportParsed(parsed: ParsedQuestion[]) {
+    const slots = Math.max(0, 100 - questions.length);
+    const take = parsed.slice(0, slots);
+    if (take.length === 0) {
+      toast("warning", "Tidak ada slot soal", "Kuis sudah berisi 100 soal.");
+      return;
+    }
+    const added: FormQuestion[] = take.map((q) => {
+      const options = q.options.slice(0, 4);
+      const firstCorrect = Math.max(
+        0,
+        options.findIndex((o) => o.isCorrect),
+      );
+      return {
+        key: nextKey(),
+        question_text: q.text.trim(),
+        image_url: "",
+        time_limit_sec: 20,
+        points_multiplier: 1000,
+        options: options.map((o, i) => ({
+          key: nextKey(),
+          option_text: o.text.trim(),
+          is_correct: i === firstCorrect,
+          color_index: i,
+        })),
+      };
+    });
+    setQuestions((prev) => [...prev, ...added]);
+    setIssues([]); // perbaiki masalah lama: daftar masalah akan dihitung ulang saat simpan
+    toast(
+      "success",
+      `${added.length} soal diimpor`,
+      parsed.length > take.length
+        ? `${parsed.length - take.length} soal lain tidak dimuat (batas 100).`
+        : "Periksa detail tiap soal sebelum menyimpan.",
+    );
+  }
 
   React.useEffect(() => {
     if (!quizId) return;
@@ -580,16 +623,26 @@ export default function QuizEditorPage() {
         </section>
 
         {/* Daftar soal */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-lg font-bold">Pertanyaan</h2>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={questions.length >= 100}
-            onClick={() => setQuestions((prev) => [...prev, emptyQuestion()])}
-          >
-            <Plus /> Tambah Soal
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={questions.length >= 100}
+              onClick={() => setImportOpen(true)}
+            >
+              <FileUp /> Impor Dokumen
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={questions.length >= 100}
+              onClick={() => setQuestions((prev) => [...prev, emptyQuestion()])}
+            >
+              <Plus /> Tambah Soal
+            </Button>
+          </div>
         </div>
 
         <Reorder.Group
@@ -624,6 +677,14 @@ export default function QuizEditorPage() {
           </button>
         )}
       </PageTransition>
+
+      {/* Dialog impor soal dari dokumen (Excel/Word/PDF/CSV/TXT) */}
+      <ImportQuestionsDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImport={handleImportParsed}
+        remaining={100 - questions.length}
+      />
     </div>
   );
 }

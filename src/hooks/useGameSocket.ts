@@ -27,6 +27,10 @@ export interface GameStore {
   answeredCount: number;
   totalPlayers: number;
   leaderboard: LeaderboardEntry[];
+  /** Posisi sebelum pembaruan klasemen terakhir — untuk chip delta (▲/▼). */
+  prevRanks?: Record<string, number>;
+  /** Skor sebelum pembaruan klasemen terakhir — untuk chip delta (+poin). */
+  prevScores?: Record<string, number>;
   you?: LeaderboardYou;
   podium?: LeaderboardEntry[];
   finalLeaderboard?: LeaderboardEntry[];
@@ -46,6 +50,22 @@ const initialState = (pin: string): GameStore => ({
   leaderboard: [],
   isLast: false,
 });
+
+/**
+ * Snapshot klasemen → peta posisi/skor per pemain. Dipakai sebagai "keadaan
+ * sebelumnya" saat LEADERBOARD_UPDATE/GAME_OVER agar UI leaderboard bisa
+ * menampilkan perubahan (▲/▼ peringkat, +poin). Murni state frontend —
+ * tidak ada field baru di kontrak WS.
+ */
+function snapshotPrev(leaderboard: LeaderboardEntry[]) {
+  const prevRanks: Record<string, number> = {};
+  const prevScores: Record<string, number> = {};
+  for (const e of leaderboard) {
+    prevRanks[e.player_id] = e.rank;
+    prevScores[e.player_id] = e.score;
+  }
+  return { prevRanks, prevScores };
+}
 
 /**
  * State permainan tunggal untuk host dan pemain (PRD §6).
@@ -172,6 +192,7 @@ export function useGameSocket(wsUrl: string | null) {
           break;
         case "LEADERBOARD_UPDATE":
           apply({
+            ...snapshotPrev(storeRef.current.leaderboard),
             leaderboard: e.payload.top,
             totalPlayers: e.payload.total_players,
             ...(e.payload.you ? { you: e.payload.you } : {}),
@@ -179,6 +200,7 @@ export function useGameSocket(wsUrl: string | null) {
           break;
         case "GAME_OVER":
           apply({
+            ...snapshotPrev(storeRef.current.leaderboard),
             status: "PODIUM",
             podium: e.payload.podium,
             finalLeaderboard: e.payload.leaderboard,
@@ -201,8 +223,16 @@ export function useGameSocket(wsUrl: string | null) {
     const sock = new GameSocket(wsUrl, handleEvent);
     socketRef.current = sock;
     const off = sock.onStatus(setWsStatus);
-    sock.connect();
+    // Koneksi awal ditunda satu macro-task: pada StrictMode dev, efek ini
+    // dijalankan dua kali (mount → cleanup → mount) dan server membatalkan
+    // token pemain begitu koneksi pertamanya tertutup (reconnect dengan token
+    // yang sama ditolak "UNAUTHORIZED"). Tanpa penundaan, koneksi pertama dari
+    // StrictMode yang segera ditutup akan "membakar" token sehingga koneksi
+    // kedua tidak pernah berhasil. Dengan penundaan, hanya mount terakhir yang
+    // benar-benar membuka koneksi — perilaku produksi tidak berubah.
+    const openTimer = setTimeout(() => sock.connect(), 0);
     return () => {
+      clearTimeout(openTimer);
       off();
       sock.close();
       socketRef.current = null;

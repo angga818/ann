@@ -9,7 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/toast";
-import { AVATARS, AvatarIcon } from "@/lib/avatars";
+import {
+  AVATARS,
+  AvatarIcon,
+  customAvatarRef,
+  loadCustomAvatarChoice,
+  saveCustomAvatarChoice,
+  type CustomAvatar,
+} from "@/lib/avatars";
+import { AvatarUploadDialog, CustomAvatarTile } from "@/components/player/AvatarUploadDialog";
 import { loadAvatarChoice, saveAvatarChoice, savePlayerCreds } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +38,9 @@ export default function JoinPage() {
   const [pin, setPin] = React.useState(routePin ?? "");
   const [nickname, setNickname] = React.useState("");
   const [avatarId, setAvatarId] = React.useState(() => loadAvatarChoice() ?? 0);
+  const [customAvatar, setCustomAvatar] = React.useState<CustomAvatar | null>(() => loadCustomAvatarChoice());
+  const [useCustom, setUseCustom] = React.useState(() => loadCustomAvatarChoice() !== null);
+  const [uploadOpen, setUploadOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const pinRef = React.useRef<HTMLInputElement>(null);
@@ -44,7 +55,18 @@ export default function JoinPage() {
 
   function chooseAvatar(id: number) {
     setAvatarId(id);
+    setUseCustom(false);
+    // Foto lama dihapus agar tidak menimpa karakter yang baru dipilih saat bermain.
+    setCustomAvatar(null);
+    saveCustomAvatarChoice(null);
     saveAvatarChoice(id);
+  }
+
+  /** Foto hasil crop sudah diunggah dialog ke storage backend (bila tersedia). */
+  function applyCustomAvatar(avatar: CustomAvatar) {
+    setCustomAvatar(avatar);
+    setUseCustom(true);
+    saveCustomAvatarChoice(avatar);
   }
 
   async function handleSubmit(e?: React.FormEvent) {
@@ -153,7 +175,7 @@ export default function JoinPage() {
               <Label>Pilih avatar Anda</Label>
               <div className="grid grid-cols-5 gap-2">
                 {AVATARS.map((a, id) => {
-                  const selected = id === avatarId;
+                  const selected = !useCustom && id === avatarId;
                   return (
                     <motion.button
                       key={id}
@@ -192,9 +214,21 @@ export default function JoinPage() {
                     </motion.button>
                   );
                 })}
+                <CustomAvatarTile
+                  active={useCustom && customAvatar !== null}
+                  avatar={customAvatar ? customAvatarRef(customAvatar) : undefined}
+                  onClick={() => {
+                    if (customAvatar) {
+                      setUseCustom(true);
+                      saveCustomAvatarChoice(customAvatar);
+                    }
+                    setUploadOpen(true);
+                  }}
+                />
               </div>
               <p className="text-[11px] text-muted-foreground/70">
-                Avatar ini menjadi identitas Anda selama permainan.
+                Pilih karakter atau unggah foto sendiri (JPG, PNG, WebP) — avatar menjadi identitas Anda
+                selama permainan.
               </p>
             </div>
 
@@ -230,6 +264,8 @@ export default function JoinPage() {
           </p>
         </motion.div>
       </div>
+
+      <AvatarUploadDialog open={uploadOpen} onOpenChange={setUploadOpen} onSaved={applyCustomAvatar} />
     </div>
   );
 }
