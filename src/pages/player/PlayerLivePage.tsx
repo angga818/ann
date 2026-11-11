@@ -14,12 +14,14 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Logo } from "@/components/Logo";
 import { AnimatedNumber, ConnectionPill, PageTransition } from "@/components/common";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { CountdownBar, TimerDigits } from "@/components/game/Countdown";
+import { CountdownBar, PreviewCountdown, TimerRing } from "@/components/game/Countdown";
+import { CelebrationBurst } from "@/components/game/Celebration";
 import { LeaderboardList, PodiumView } from "@/components/game/Leaderboard";
 import { OptionGrid, QuestionHeader } from "@/components/game/OptionGrid";
 import { useGameSocket } from "@/hooks/useGameSocket";
 import { useServerCountdown } from "@/hooks/useServerCountdown";
 import { useToast } from "@/components/toast";
+import { AvatarIcon, avatarForPlayer } from "@/lib/avatars";
 import { clearPlayerCreds, loadPlayerCreds } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +46,13 @@ export default function PlayerLivePage() {
   // Sisa waktu soal aktif — untuk mengunci input dan info "waktu habis".
   const remaining = useServerCountdown(store.deadlineMs);
   const timeUp = store.status === "QUESTION" && !!store.deadlineMs && remaining <= 0;
+
+  // Avatar: pemain lain → hash player_id; diri sendiri → pilihan di halaman join.
+  const getAvatar = React.useCallback(
+    (playerId: string) =>
+      playerId === creds?.player_id ? (creds?.avatarId ?? 0) : avatarForPlayer(playerId),
+    [creds],
+  );
 
   // Error WS → toast sekali per pesan.
   const lastErrRef = React.useRef<string | null>(null);
@@ -83,6 +92,7 @@ export default function PlayerLivePage() {
   if (!pin) return null;
 
   const you = store.you;
+  const myAvatar = creds?.avatarId ?? 0;
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -119,11 +129,11 @@ export default function PlayerLivePage() {
               className="flex flex-col items-center py-10 text-center"
             >
               <motion.div
-                animate={{ y: [0, -10, 0] }}
+                animate={{ y: [0, -8, 0] }}
                 transition={{ repeat: Infinity, duration: 3.2, ease: "easeInOut" }}
-                className="grid size-20 place-items-center rounded-3xl bg-primary text-primary-foreground"
+                className="grid size-24 place-items-center rounded-3xl border-4 border-primary/20 bg-primary-soft"
               >
-                <Users className="size-9" strokeWidth={2.2} />
+                <AvatarIcon id={myAvatar} className="size-20" />
               </motion.div>
 
               <h1 className="mt-7 font-display text-3xl font-black tracking-tight">
@@ -153,22 +163,25 @@ export default function PlayerLivePage() {
                 </p>
                 <div className="flex flex-wrap justify-center gap-2">
                   <AnimatePresence>
-                    {store.players.map((p) => (
-                      <motion.span
-                        key={p.player_id}
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0, opacity: 0 }}
-                        className={cn(
-                          "rounded-full border px-3 py-1.5 text-xs font-semibold",
-                          p.player_id === creds?.player_id
-                            ? "border-primary/45 bg-primary/10 text-primary"
-                            : "border-border bg-foreground/[0.03] text-foreground/80",
-                        )}
-                      >
-                        {p.nickname}
-                      </motion.span>
-                    ))}
+                    {store.players.map((p) => {
+                      const me = p.player_id === creds?.player_id;
+                      return (
+                        <motion.span
+                          key={p.player_id}
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0, opacity: 0 }}
+                          transition={{ type: "spring", stiffness: 450, damping: 25 }}
+                          className={cn(
+                            "flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3.5 text-xs font-semibold",
+                            me ? "border-primary/45 bg-primary-soft text-primary" : "border-border bg-card text-foreground/80",
+                          )}
+                        >
+                          <AvatarIcon id={getAvatar(p.player_id)} className="size-6" />
+                          {p.nickname}
+                        </motion.span>
+                      );
+                    })}
                   </AnimatePresence>
                 </div>
               </div>
@@ -192,27 +205,20 @@ export default function PlayerLivePage() {
               exit={{ opacity: 0 }}
               className="flex min-h-[70vh] flex-col items-center justify-center text-center"
             >
-              <motion.div
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="relative grid size-32 place-items-center"
+              <PreviewCountdown
+                endsAtMs={store.previewEndsAtMs}
+                fallbackNumber={(store.question?.index ?? 0) + 1}
+                totalMs={3000}
+                label={`Soal ${String((store.question?.index ?? 0) + 1).padStart(2, "0")} dari ${store.total || "?"}`}
+              />
+              <motion.p
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="mt-4 text-xs text-muted-foreground/70"
               >
-                <motion.span
-                  className="absolute inset-0 rounded-full border-4 border-primary/40"
-                  animate={{ scale: [1, 1.35, 1], opacity: [0.8, 0, 0.8] }}
-                  transition={{ repeat: Infinity, duration: 1.5 }}
-                />
-                <span className="font-display text-6xl font-black text-primary">
-                  {String((store.question?.index ?? 0) + 1).padStart(2, "0")}
-                </span>
-              </motion.div>
-              <p className="mt-6 text-sm font-semibold uppercase tracking-[0.25em] text-muted-foreground">
-                Soal berikutnya
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground/70">
-                Bersiap jawab secepat mungkin untuk poin maksimal!
-              </p>
+                Jawab secepat mungkin untuk poin maksimal!
+              </motion.p>
             </motion.section>
           )}
 
@@ -228,10 +234,11 @@ export default function PlayerLivePage() {
               {/* status jawaban / timer */}
               <div className="mb-5 flex items-center justify-between gap-3">
                 {view === "question" && !store.yourAnswer && !timeUp ? (
-                  <div className="flex items-center gap-4">
-                    <TimerDigits deadlineMs={store.deadlineMs} />
-                    <span className="text-sm text-muted-foreground">detik</span>
-                  </div>
+                  <TimerRing
+                    deadlineMs={store.deadlineMs}
+                    totalMs={store.question.time_limit_sec * 1000}
+                    size={64}
+                  />
                 ) : view === "question" && timeUp && !store.yourAnswer ? (
                   <Badge variant="warning" className="px-3.5 py-2 text-xs">
                     <Loader2 className="animate-spin" /> Waktu habis — menghitung hasil…
@@ -241,20 +248,30 @@ export default function PlayerLivePage() {
                     <BadgeCheck className="size-4" /> Jawaban diterima!
                   </Badge>
                 ) : (
-                  <Badge
-                    variant={you?.is_correct === true ? "success" : you?.is_correct === false ? "destructive" : "secondary"}
-                    className="px-3.5 py-2 text-xs"
-                  >
-                    {you?.is_correct ? (
-                      <>
-                        <Trophy className="size-4" /> Benar! +{you.points_earned.toLocaleString("id-ID")}
-                      </>
-                    ) : you?.answered ? (
-                      <>Salah — coba lagi di soal berikutnya</>
-                    ) : (
-                      <>Tidak sempat menjawab</>
-                    )}
-                  </Badge>
+                  <span className="relative inline-flex">
+                    {/* ledakan kecil saat jawaban benar */}
+                    {you?.is_correct && <CelebrationBurst count={16} spread={90} />}
+                    <motion.span
+                      initial={{ scale: 0.7, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: "spring", stiffness: 420, damping: 18 }}
+                    >
+                      <Badge
+                        variant={you?.is_correct === true ? "success" : you?.is_correct === false ? "destructive" : "secondary"}
+                        className="px-3.5 py-2 text-xs"
+                      >
+                        {you?.is_correct ? (
+                          <>
+                            <Trophy className="size-4" /> Benar! +{you.points_earned.toLocaleString("id-ID")}
+                          </>
+                        ) : you?.answered ? (
+                          <>Salah — coba lagi di soal berikutnya</>
+                        ) : (
+                          <>Tidak sempat menjawab</>
+                        )}
+                      </Badge>
+                    </motion.span>
+                  </span>
                 )}
                 {view === "question" && (
                   <Badge variant="secondary" className="px-3 py-1.5">
@@ -294,8 +311,8 @@ export default function PlayerLivePage() {
                 >
                   <div
                     className={cn(
-                      "rounded-2xl border p-4 text-center",
-                      you.is_correct ? "border-success/40 bg-success/10" : "border-border bg-foreground/[0.03]",
+                      "rounded-2xl border bg-card p-4 text-center",
+                      you.is_correct ? "border-success/40 bg-success-soft" : "border-border",
                     )}
                   >
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Poin</p>
@@ -304,14 +321,14 @@ export default function PlayerLivePage() {
                       className={cn("mt-1 block font-display text-2xl font-black", you.is_correct && "text-success")}
                     />
                   </div>
-                  <div className="rounded-2xl border border-border bg-foreground/[0.03] p-4 text-center">
+                  <div className="rounded-2xl border border-border bg-card p-4 text-center">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Peringkat</p>
                     <p className="mt-1 font-display text-2xl font-black tabular-nums">
                       #{you.rank}
                       <span className="text-sm font-bold text-muted-foreground"> / {store.totalPlayers}</span>
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-border bg-foreground/[0.03] p-4 text-center">
+                  <div className="rounded-2xl border border-border bg-card p-4 text-center">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Streak</p>
                     <p className="mt-1 font-display text-2xl font-black tabular-nums">
                       {you.streak}
@@ -331,7 +348,11 @@ export default function PlayerLivePage() {
                   <h3 className="mb-4 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
                     Top 10
                   </h3>
-                  <LeaderboardList entries={store.leaderboard} highlightPlayerId={creds?.player_id} />
+                  <LeaderboardList
+                    entries={store.leaderboard}
+                    highlightPlayerId={creds?.player_id}
+                    getAvatar={getAvatar}
+                  />
                 </motion.div>
               )}
 
@@ -371,7 +392,7 @@ export default function PlayerLivePage() {
                 )}
               </div>
 
-              <PodiumView podium={store.podium ?? []} highlightPlayerId={creds?.player_id} />
+              <PodiumView podium={store.podium ?? []} highlightPlayerId={creds?.player_id} getAvatar={getAvatar} />
 
               {store.finalLeaderboard && store.finalLeaderboard.length > 0 && (
                 <motion.div
@@ -383,7 +404,11 @@ export default function PlayerLivePage() {
                   <h3 className="mb-4 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
                     Klasemen Akhir
                   </h3>
-                  <LeaderboardList entries={store.finalLeaderboard} highlightPlayerId={creds?.player_id} />
+                  <LeaderboardList
+                    entries={store.finalLeaderboard}
+                    highlightPlayerId={creds?.player_id}
+                    getAvatar={getAvatar}
+                  />
                 </motion.div>
               )}
 

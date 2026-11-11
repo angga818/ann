@@ -1,8 +1,9 @@
 import { Circle, Diamond, Square, Triangle, type LucideIcon } from "lucide-react";
 
 /**
- * Opsi jawaban dipetakan dari color_index 0–3 ke kelas token warna flat
- * (didefinisikan di index.css, adaptif mode terang/gelap).
+ * Opsi jawaban dipetakan dari color_index 0–3 → token warna flat
+ * (merah, biru, kuning, hijau) yang didefinisikan di index.css
+ * dan konsisten di mode terang/gelap.
  */
 export interface OptionStyle {
   name: string;
@@ -18,25 +19,25 @@ export const OPTION_STYLES: OptionStyle[] = [
   {
     name: "merah",
     base: "bg-opt-0",
-    hover: "hover:brightness-110",
+    hover: "hover:brightness-95",
     text: "text-opt-0-fg",
-    barTrack: "bg-opt-0/25",
+    barTrack: "bg-opt-0/15",
     barFill: "bg-opt-0",
     icon: Triangle,
   },
   {
     name: "biru",
     base: "bg-opt-1",
-    hover: "hover:brightness-110",
+    hover: "hover:brightness-95",
     text: "text-opt-1-fg",
-    barTrack: "bg-opt-1/25",
+    barTrack: "bg-opt-1/15",
     barFill: "bg-opt-1",
     icon: Diamond,
   },
   {
     name: "kuning",
     base: "bg-opt-2",
-    hover: "hover:brightness-105",
+    hover: "hover:brightness-95",
     text: "text-opt-2-fg",
     barTrack: "bg-opt-2/25",
     barFill: "bg-opt-2",
@@ -45,9 +46,9 @@ export const OPTION_STYLES: OptionStyle[] = [
   {
     name: "hijau",
     base: "bg-opt-3",
-    hover: "hover:brightness-110",
+    hover: "hover:brightness-95",
     text: "text-opt-3-fg",
-    barTrack: "bg-opt-3/25",
+    barTrack: "bg-opt-3/15",
     barFill: "bg-opt-3",
     icon: Square,
   },

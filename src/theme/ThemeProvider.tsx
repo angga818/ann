@@ -11,7 +11,7 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = React.createContext<ThemeContextValue>({
-  theme: "dark",
+  theme: "light",
   setTheme: () => {},
   toggle: () => {},
 });
@@ -20,17 +20,17 @@ export function useTheme() {
   return React.useContext(ThemeContext);
 }
 
-/** Provider tema: light/dark, tersimpan di localStorage, default ikut OS. */
+/** Provider tema: light/dark, tersimpan di localStorage, default light (tema utama aplikasi). */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = React.useState<Theme>(() => {
-    if (typeof window === "undefined") return "dark";
+    if (typeof window === "undefined") return "light";
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored === "light" || stored === "dark") return stored;
     } catch {
       /* ignore */
     }
-    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    return "light";
   });
 
   React.useEffect(() => {

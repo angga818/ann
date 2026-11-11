@@ -2,78 +2,108 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ------------------------------ Light ------------------------------ */
+/* ------------------------------ Light (utama) ------------------------------ */
 :root {
-  --background: #faf7f1;
-  --foreground: #26211b;
+  --background: #f5f6f8;
+  --foreground: #202936;
   --card: #ffffff;
-  --card-foreground: #26211b;
+  --card-foreground: #202936;
   --popover: #ffffff;
-  --popover-foreground: #26211b;
-  --primary: #c2482b;
+  --popover-foreground: #202936;
+  --primary: #1c5fe6;
+  --primary-hover: #174db8;
   --primary-foreground: #ffffff;
-  --secondary: #ede7dc;
-  --secondary-foreground: #38322a;
-  --muted: #efeae0;
-  --muted-foreground: #6f6659;
-  --accent: #9a6b1f;
+  --primary-soft: #dce8fc;
+  --secondary: #eef0f4;
+  --secondary-foreground: #202936;
+  --muted: #eef0f4;
+  --muted-foreground: #667181;
+  --accent: #8b72d9;
   --accent-foreground: #ffffff;
-  --destructive: #c93a3a;
+  --accent-soft: #ece8fa;
+  --destructive: #e5484d;
   --destructive-foreground: #ffffff;
-  --success: #237a45;
+  --success: #2fa37c;
   --success-foreground: #ffffff;
-  --warning: #9a6b1f;
+  --success-soft: #dff2ea;
+  --warning: #b98514;
   --warning-foreground: #ffffff;
-  --border: #e5dccb;
-  --input: #d9d0bf;
-  --ring: rgb(194 72 43 / 0.45);
-  --dot: rgb(38 33 27 / 0.06);
+  --warning-soft: #fdf0d3;
+  --coral: #f28f8f;
+  --coral-soft: #fde7e7;
+  --border: #e2e6ec;
+  --input: #e2e6ec;
+  --ring: rgb(28 95 230 / 0.4);
+  --dot: rgb(32 41 54 / 0.08);
 
-  /* medali podium (sama di kedua mode) */
-  --gold: #d9a521;
-  --gold-fg: #3b2e06;
-  --silver: #aeb4bd;
+  /* medali podium */
+  --gold: #f2c66d;
+  --gold-fg: #3a2e06;
+  --silver: #c4cbd6;
   --silver-fg: #23272e;
-  --bronze: #b0734c;
+  --bronze: #d08a5b;
   --bronze-fg: #2e1505;
 
-  /* opsi jawaban — flat, fungsional */
-  --opt-0: #c8433c;
-  --opt-0-fg: #fff7f5;
-  --opt-1: #3667c9;
-  --opt-1-fg: #f4f7ff;
-  --opt-2: #d9a521;
-  --opt-2-fg: #3b2e06;
-  --opt-3: #2f8f5b;
-  --opt-3-fg: #f0faf4;
+  /* warna opsi jawaban gameplay — flat, mudah dibedakan */
+  --opt-0: #e23d3d;
+  --opt-0-fg: #ffffff;
+  --opt-1: #2d6be4;
+  --opt-1-fg: #ffffff;
+  --opt-2: #f2c03d;
+  --opt-2-fg: #3a2e06;
+  --opt-3: #2fa35d;
+  --opt-3-fg: #ffffff;
 }
 
-/* ------------------------------ Dark ------------------------------- */
+/* ------------------------------ Dark (sekunder) ------------------------------ */
 .dark {
-  --background: #151210;
-  --foreground: #ece7de;
-  --card: #1e1a16;
-  --card-foreground: #ece7de;
-  --popover: #211c17;
-  --popover-foreground: #ece7de;
-  --primary: #e8603c;
-  --primary-foreground: #1a0f0a;
-  --secondary: #2a241f;
-  --secondary-foreground: #ece7de;
-  --muted: #2a241f;
-  --muted-foreground: #a79c8b;
-  --accent: #e5a54b;
-  --accent-foreground: #1a0f0a;
-  --destructive: #e8695e;
-  --destructive-foreground: #1a0f0a;
-  --success: #57b47f;
-  --success-foreground: #0d1a12;
-  --warning: #e5a54b;
-  --warning-foreground: #1a0f0a;
-  --border: #2f2922;
-  --input: #3a332b;
-  --ring: rgb(232 96 60 / 0.45);
-  --dot: rgb(236 231 222 / 0.05);
+  --background: #14171c;
+  --foreground: #e7eaf0;
+  --card: #1c2027;
+  --card-foreground: #e7eaf0;
+  --popover: #1f232b;
+  --popover-foreground: #e7eaf0;
+  --primary: #5b8af0;
+  --primary-hover: #7ba2f4;
+  --primary-foreground: #0b1220;
+  --primary-soft: #22314f;
+  --secondary: #262b34;
+  --secondary-foreground: #e7eaf0;
+  --muted: #262b34;
+  --muted-foreground: #9aa3b2;
+  --accent: #a593e8;
+  --accent-foreground: #0b1220;
+  --accent-soft: #2c2843;
+  --destructive: #ef6b6f;
+  --destructive-foreground: #0b1220;
+  --success: #4fc08c;
+  --success-foreground: #0b1220;
+  --success-soft: #1c332b;
+  --warning: #e0b04a;
+  --warning-foreground: #0b1220;
+  --warning-soft: #362e1a;
+  --coral: #f2a3a3;
+  --coral-soft: #3a2424;
+  --border: #2a303b;
+  --input: #2f3642;
+  --ring: rgb(91 138 240 / 0.45);
+  --dot: rgb(231 234 240 / 0.07);
+
+  --gold: #f2c66d;
+  --gold-fg: #3a2e06;
+  --silver: #aab3c2;
+  --silver-fg: #1a1e25;
+  --bronze: #c98a5e;
+  --bronze-fg: #2e1505;
+
+  --opt-0: #d94444;
+  --opt-0-fg: #ffffff;
+  --opt-1: #3d72ea;
+  --opt-1-fg: #ffffff;
+  --opt-2: #e8b73e;
+  --opt-2-fg: #33290a;
+  --opt-3: #38a868;
+  --opt-3-fg: #ffffff;
 }
 
 @theme inline {
@@ -84,19 +114,26 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-coral: var(--coral);
+  --color-coral-soft: var(--coral-soft);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -117,14 +154,14 @@
   --color-opt-3: var(--opt-3);
   --color-opt-3-fg: var(--opt-3-fg);
 
-  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Outfit", "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: 0.75rem;
-  --radius-xl: calc(0.75rem + 4px);
-  --radius-2xl: calc(0.75rem + 12px);
-  --radius: 0.75rem;
+  --font-sans: "Inter", "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Sora", "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --radius-sm: calc(0.625rem - 2px);
+  --radius-md: 0.625rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: calc(0.625rem + 4px);
+  --radius-2xl: calc(0.625rem + 8px);
+  --radius: 0.625rem;
 }
 
 @layer base {
@@ -145,18 +182,18 @@
     overscroll-behavior-y: none;
   }
   ::selection {
-    background: color-mix(in srgb, var(--primary) 25%, transparent);
+    background: color-mix(in srgb, var(--primary) 22%, transparent);
   }
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgb(0 0 0 / 0.18);
+    background: rgb(32 41 54 / 0.18);
     border-radius: 8px;
   }
   .dark ::-webkit-scrollbar-thumb {
-    background: rgb(255 255 255 / 0.12);
+    background: rgb(231 234 240 / 0.16);
   }
   ::-webkit-scrollbar-track {
     background: transparent;

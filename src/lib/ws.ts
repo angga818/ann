@@ -6,6 +6,79 @@ export type WsStatus = "connecting" | "open" | "reconnecting" | "closed";
 type Handler = (e: WsEvent) => void;
 
 /**
+ * Parse satu frame WebSocket menjadi daftar event.
+ *
+ * PENTING: server kadang menggabungkan beberapa dokumen JSON ke dalam SATU
+ * frame (teramati: `PLAYER_JOINED`+`STATE_SYNC`, `START_GAME`+`QUESTION_PREVIEW`,
+ * dan rangkaian `ANSWER_SUMMARY`+`QUESTION_END`+`LEADERBOARD_UPDATE` saat semua
+ * pemain selesai menjawab). `JSON.parse` biasa melempar error pada frame
+ * seperti itu — jika frame diabaikan, event penting hilang dan layar menggantung
+ * (timer beku di angka 0 padahal game berlanjut di server).
+ *
+ * Strategi:
+ * 1. Fast-path: frame berisi tepat satu dokumen JSON (kasus paling umum).
+ * 2. Split per baris (NDJSON).
+ * 3. Fallback: pemindah kedalaman kurung untuk dokumen yang digabung tanpa
+ *    pemisah baris. Fragmen yang tidak valid diabaikan, dokumen valid tetap
+ *    diproses.
+ */
+export function parseWsMessages(raw: string): WsEvent[] {
+  try {
+    const one = JSON.parse(raw) as WsEvent;
+    return one && typeof one.event === "string" ? [one] : [];
+  } catch {
+    /* multi-dokumen — lanjut di bawah */
+  }
+
+  const docs: WsEvent[] = [];
+  const tryPush = (s: string) => {
+    const t = s.trim();
+    if (!t) return;
+    try {
+      const d = JSON.parse(t) as WsEvent;
+      if (d && typeof d.event === "string") docs.push(d);
+    } catch {
+      /* fragmen korup diabaikan */
+    }
+  };
+
+  if (raw.includes("\n")) {
+    for (const line of raw.split("\n")) tryPush(line);
+    if (docs.length > 0) return docs;
+  }
+
+  // Pemindah kurung: ekstrak tiap objek top-level `{...}` lengkap.
+  let depth = 0;
+  let start = -1;
+  let inStr = false;
+  let esc = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') {
+      inStr = true;
+      continue;
+    }
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        tryPush(raw.slice(start, i + 1));
+        start = -1;
+      }
+    }
+  }
+  return docs;
+}
+
+/**
  * Koneksi WebSocket permainan dengan reconnect otomatis (backoff eksponensial).
  * Token host/pemain dipakai ulang saat reconnect (PRD §4.3); server selalu
  * mengirim STATE_SYNC setelah koneksi berhasil.
@@ -71,12 +144,9 @@ export class GameSocket {
       this.setStatus("open");
     };
     this.ws.onmessage = (msg) => {
-      try {
-        const data = JSON.parse(msg.data as string) as WsEvent;
-        if (data && typeof data.event === "string") this.handler(data);
-      } catch {
-        /* pesan tidak valid diabaikan */
-      }
+      if (typeof msg.data !== "string") return;
+      // Satu frame dapat berisi >1 event (lihat parseWsMessages).
+      for (const ev of parseWsMessages(msg.data)) this.handler(ev);
     };
     this.ws.onclose = () => {
       if (this.manualClose) {

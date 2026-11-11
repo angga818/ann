@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/toast";
+import { pushActivity } from "@/lib/storage";
 import { OPTION_STYLES, optionStyle } from "@/lib/option-colors";
 import { cn } from "@/lib/utils";
 
@@ -465,9 +466,19 @@ export default function QuizEditorPage() {
       };
       if (isEdit) {
         await updateQuiz(quizId!, payload);
+        pushActivity({
+          type: "quiz-updated",
+          label: `Memperbarui kuis “${payload.title}”`,
+          detail: `${payload.questions.length} soal`,
+        });
         toast("success", "Kuis tersimpan", "Perubahan telah disimpan.");
       } else {
         const created = await createQuiz(payload);
+        pushActivity({
+          type: "quiz-created",
+          label: `Membuat kuis “${created.title}”`,
+          detail: `${payload.questions.length} soal`,
+        });
         toast("success", "Kuis dibuat", `“${created.title}” siap digunakan.`);
         navigate(`/host/quiz/${created.id}`, { replace: true });
       }

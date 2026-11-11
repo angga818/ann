@@ -5,7 +5,7 @@ import { optionStyle } from "@/lib/option-colors";
 import { SmartImage } from "@/components/SmartImage";
 import { cn } from "@/lib/utils";
 
-/** Grid opsi jawaban — mode host (statis) atau pemain (interaktif). */
+/** Grid opsi jawaban besar — mode host (statis) atau pemain (interaktif). */
 export function OptionGrid({
   question,
   mode,
@@ -20,7 +20,7 @@ export function OptionGrid({
   selectedOptionId?: string;
   correctOptionId?: string;
   reveal: boolean;
-  /** Waktu habis / hasil sedang dihitung — kunci input tanpa mengungkap benar/salah. */
+  /** Waktu habes / hasil dihitung — kunci input tanpa membocorkan benar/salah. */
   frozen?: boolean;
   onSelect?: (opt: WsOption) => void;
 }) {
@@ -39,28 +39,36 @@ export function OptionGrid({
           <motion.button
             key={opt.id}
             initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 * i, type: "spring", stiffness: 320, damping: 26 }}
+            animate={
+              isWrongPick
+                ? { opacity: 1, y: 0, x: [0, -7, 7, -5, 5, 0] }
+                : { opacity: dimmed ? 0.45 : 1, y: 0, x: 0, scale: isCorrect ? 1.02 : 1 }
+            }
+            transition={
+              isWrongPick
+                ? { delay: 0.05 * i, duration: 0.42 }
+                : { delay: 0.05 * i, type: "spring", stiffness: 320, damping: 26 }
+            }
             whileHover={mode === "player" && !locked && !reveal ? { scale: 1.015, y: -2 } : undefined}
             whileTap={mode === "player" && !locked && !reveal ? { scale: 0.97 } : undefined}
             disabled={mode === "host" || locked || reveal}
             onClick={() => onSelect?.(opt)}
             className={cn(
-              "relative flex items-center gap-4 rounded-2xl p-5 text-left transition-[filter,opacity] duration-150",
+              "relative flex min-h-16 items-center gap-4 rounded-2xl p-4 text-left shadow-sm sm:p-5",
               st.base,
               st.text,
               mode === "player" && !locked && !reveal && `cursor-pointer ${st.hover}`,
-              isSelected && !reveal && "ring-2 ring-foreground/60 ring-offset-2 ring-offset-background",
+              isSelected && !reveal && "ring-4 ring-foreground/25",
               dimmed && "opacity-40",
-              isCorrect && "ring-2 ring-success ring-offset-2 ring-offset-background",
-              isWrongPick && "ring-2 ring-destructive ring-offset-2 ring-offset-background",
+              isCorrect && "ring-4 ring-success",
+              isWrongPick && "ring-4 ring-destructive",
               frozen && !reveal && "opacity-70",
             )}
           >
-            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-black/20">
-              <st.icon className="size-5" strokeWidth={2.5} />
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/25 sm:size-10">
+              <st.icon className="size-5" fill="currentColor" strokeWidth={0} />
             </span>
-            <span className="min-w-0 flex-1 font-display text-base font-bold leading-snug sm:text-lg">
+            <span className="min-w-0 flex-1 font-display text-[15px] font-bold leading-snug sm:text-lg">
               {opt.text}
             </span>
 
@@ -68,7 +76,7 @@ export function OptionGrid({
               <motion.span
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="grid size-7 shrink-0 place-items-center rounded-full bg-black/25"
+                className="grid size-7 shrink-0 place-items-center rounded-full bg-white/30"
               >
                 <Check className="size-4" strokeWidth={3} />
               </motion.span>
@@ -76,9 +84,9 @@ export function OptionGrid({
             {isCorrect && (
               <motion.span
                 initial={{ scale: 0, rotate: -30 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                className="grid size-8 shrink-0 place-items-center rounded-full bg-black/30"
+                animate={{ scale: [0, 1.35, 1], rotate: 0 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="grid size-8 shrink-0 place-items-center rounded-full bg-white/30"
               >
                 <Check className="size-5" strokeWidth={3.2} />
               </motion.span>
@@ -87,7 +95,7 @@ export function OptionGrid({
               <motion.span
                 initial={{ scale: 0, rotate: 30 }}
                 animate={{ scale: 1, rotate: 0 }}
-                className="grid size-8 shrink-0 place-items-center rounded-full bg-black/30"
+                className="grid size-8 shrink-0 place-items-center rounded-full bg-white/30"
               >
                 <X className="size-5" strokeWidth={3.2} />
               </motion.span>
@@ -113,17 +121,17 @@ export function QuestionHeader({ question, eager }: { question: WsQuestion; eage
           url={question.image_url}
           alt="Gambar soal"
           eager={eager}
-          className="mx-auto max-h-64 w-full max-w-xl rounded-2xl border border-border"
+          className="mx-auto max-h-56 w-full max-w-xl rounded-2xl border border-border bg-card"
         />
       )}
-      <h2 className="text-balance text-center font-display text-2xl font-black leading-tight sm:text-3xl">
+      <h2 className="text-balance text-center font-display text-2xl font-bold leading-tight sm:text-3xl">
         {question.question_text}
       </h2>
     </div>
   );
 }
 
-/** Grafik distribusi jawaban untuk host (ANSWER_SUMMARY) — bar flat. */
+/** Grafik distribusi jawaban untuk host (ANSWER_SUMMARY). */
 export function AnswerBars({
   counts,
   options,
@@ -141,7 +149,7 @@ export function AnswerBars({
       <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
         <Users className="size-3.5" /> Distribusi jawaban ({total})
       </p>
-      {options.map((opt) => {
+      {options.map((opt, idx) => {
         const st = optionStyle(opt.color_index);
         const count = counts?.[opt.id] ?? 0;
         const pct = (count / max) * 100;
@@ -152,23 +160,29 @@ export function AnswerBars({
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.max(pct, count > 0 ? 8 : 0)}%` }}
-                transition={{ type: "spring", stiffness: 120, damping: 20 }}
-                className={cn("absolute inset-y-0 left-0", st.barFill)}
+                transition={{ delay: 0.08 * idx, type: "spring", stiffness: 120, damping: 20 }}
+                className={cn("absolute inset-y-0 left-0 rounded-xl", st.barFill)}
               />
-              <span className={cn("absolute inset-y-0 left-3 flex items-center text-sm font-bold", st.text)}>
+              <span className="absolute inset-y-0 left-3 flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                <st.icon className="size-3.5" fill="currentColor" strokeWidth={0} />
                 {opt.text}
               </span>
               {isCorrect && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <Check className="size-5 text-foreground drop-shadow" strokeWidth={3.5} />
-                </span>
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.08 * idx + 0.15, type: "spring", stiffness: 420, damping: 18 }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                >
+                  <Check className="size-5 text-success" strokeWidth={3.5} />
+                </motion.span>
               )}
             </div>
             <motion.span
               key={count}
               initial={{ scale: 1.3 }}
               animate={{ scale: 1 }}
-              className="w-8 text-right font-display text-lg font-black tabular-nums"
+              className="w-8 text-right font-display text-lg font-bold tabular-nums"
             >
               {count}
             </motion.span>

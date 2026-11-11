@@ -1,6 +1,6 @@
 import * as React from "react";
 import { GameSocket, type WsStatus } from "@/lib/ws";
-import { syncServerClock, nowServerMs } from "@/lib/time";
+import { syncServerClock, syncServerClockFallback, nowServerMs } from "@/lib/time";
 import type {
   GameStatus,
   LeaderboardEntry,
@@ -74,8 +74,7 @@ export function useGameSocket(wsUrl: string | null) {
       switch (e.event) {
         case "STATE_SYNC": {
           const p: StateSyncPayload = e.payload;
-          syncServerClock(p.server_time_ms);
-          const next: Partial<GameStore> = {
+          syncServerClock(p.server_time_ms);          const next: Partial<GameStore> = {
             status: p.status,
             pin: p.pin,
             quizTitle: p.quiz_title,
@@ -136,6 +135,9 @@ export function useGameSocket(wsUrl: string | null) {
           });
           break;
         case "QUESTION_START":
+          // Fallback jam server: kalau STATE_SYNC belum pernah sampai (frame
+          // hilang di transport), started_at_ms dipakai agar countdown tetap akurat.
+          syncServerClockFallback(e.payload.started_at_ms);
           apply({
             status: "QUESTION",
             index: e.payload.index,

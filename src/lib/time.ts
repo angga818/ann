@@ -3,9 +3,28 @@
  * offset = server_time_ms - Date.now(); sisa waktu selalu dihitung dari jam server.
  */
 let serverOffsetMs = 0;
+let hasSynced = false;
 
 export function syncServerClock(serverTimeMs: number) {
+  if (!Number.isFinite(serverTimeMs)) return; // tolak nilai tidak valid (NaN/undefined)
   serverOffsetMs = serverTimeMs - Date.now();
+  hasSynced = true;
+}
+
+/**
+ * Fallback bila STATE_SYNC (sumber utama jam server) belum pernah diterima —
+ * misalnya frame-nya hilang saat transport. Pakai timestamp event lain
+ * (mis. started_at_ms pada QUESTION_START). Sekali STATE_SYNC asli diterima,
+ * fallback ini tidak akan menimpa lagi.
+ */
+export function syncServerClockFallback(serverTimeMs: number) {
+  if (hasSynced || !Number.isFinite(serverTimeMs)) return;
+  serverOffsetMs = serverTimeMs - Date.now();
+  hasSynced = true;
+}
+
+export function hasServerClockSync(): boolean {
+  return hasSynced;
 }
 
 export function nowServerMs(): number {
