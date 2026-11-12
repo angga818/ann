@@ -48,7 +48,8 @@ export default function PlayerLivePage() {
   const { pin } = useParams<{ pin: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const creds = loadPlayerCreds();
+  // Dibaca sekali saat mount: kredensial tidak berubah selama halaman live.
+  const [creds] = React.useState(() => loadPlayerCreds());
 
   // Tanpa kredensial pemain → kembali ke halaman join.
   React.useEffect(() => {
@@ -59,6 +60,18 @@ export default function PlayerLivePage() {
   const { store, wsStatus, send, forceReconnect } = useGameSocket(
     creds && creds.pin === pin ? creds.ws_url : null,
   );
+
+  // Handshake gagal / sesi kedaluwarsa / pemain dihapus → bersihkan kredensial
+  // dan kembali ke form join (PRD §6.1 & §9). Socket sudah dihentikan oleh
+  // useGameSocket sehingga tidak ada lagi percobaan reconnect.
+  const fatalHandledRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!store.fatalError || fatalHandledRef.current) return;
+    fatalHandledRef.current = true;
+    clearPlayerCreds();
+    toast("error", "Sesi tidak tersedia", store.fatalError.message);
+    navigate(pin ? `/join/${pin}` : "/join", { replace: true });
+  }, [store.fatalError, toast, navigate, pin]);
 
   // Sisa waktu soal aktif — untuk mengunci input dan info "waktu habis".
   const remaining = useServerCountdown(store.deadlineMs);
@@ -79,7 +92,8 @@ export default function PlayerLivePage() {
   // Error WS → toast sekali per pesan.
   const lastErrRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (store.lastError && store.lastError.message !== lastErrRef.current) {
+    if (!store.lastError || store.fatalError) return;
+    if (store.lastError.message !== lastErrRef.current) {
       lastErrRef.current = store.lastError.message;
       const { code, message } = store.lastError;
       toast(
@@ -92,7 +106,7 @@ export default function PlayerLivePage() {
         message,
       );
     }
-  }, [store.lastError, toast]);
+  }, [store.lastError, store.fatalError, toast]);
 
   // Efek suara: bisa dimatikan pemain, diputar sekali per soal saat hasil keluar.
   const [soundOn, setSoundOn] = React.useState(() => loadSoundEnabled());
@@ -135,6 +149,12 @@ export default function PlayerLivePage() {
   if (!pin) return null;
 
   const you = store.you;
+  /**
+   * Di podium, `you` bisa belum ada setelah refresh (STATE_SYNC tidak membawa
+   * ringkasan personal). Ambil posisi/skor final langsung dari klasemen.
+   */
+  const podiumYou =
+    (creds ? store.finalLeaderboard?.find((e) => e.player_id === creds.player_id) : undefined) ?? you;
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -259,7 +279,7 @@ export default function PlayerLivePage() {
               <PreviewCountdown
                 endsAtMs={store.previewEndsAtMs}
                 fallbackNumber={(store.question?.index ?? 0) + 1}
-                totalMs={3000}
+                totalMs={store.question?.preview_ms ?? 3000}
                 label={`Soal ${String((store.question?.index ?? 0) + 1).padStart(2, "0")} dari ${store.total || "?"}`}
               />
               <motion.p
@@ -436,12 +456,12 @@ export default function PlayerLivePage() {
                 >
                   Hasil Akhir
                 </motion.h1>
-                {you && (
+                {podiumYou && (
                   <p className="mt-3 text-sm text-muted-foreground">
                     Anda finis peringkat{" "}
-                    <span className="font-display font-black text-primary">#{you.rank}</span> dengan{" "}
+                    <span className="font-display font-black text-primary">#{podiumYou.rank}</span> dengan{" "}
                     <span className="font-display font-black text-primary">
-                      {you.score.toLocaleString("id-ID")}
+                      {podiumYou.score.toLocaleString("id-ID")}
                     </span>{" "}
                     poin
                   </p>

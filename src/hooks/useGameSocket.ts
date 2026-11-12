@@ -1,5 +1,5 @@
 import * as React from "react";
-import { GameSocket, type WsStatus } from "@/lib/ws";
+import { GameSocket, isFatalWsError, type WsStatus } from "@/lib/ws";
 import { syncServerClock, syncServerClockFallback, nowServerMs } from "@/lib/time";
 import type {
   GameStatus,
@@ -36,6 +36,8 @@ export interface GameStore {
   finalLeaderboard?: LeaderboardEntry[];
   isLast: boolean;
   lastError?: { code: string; message: string };
+  /** Error handshake/sesi yang tidak bisa dipulihkan — halaman harus keluar. */
+  fatalError?: { code: string; message: string };
 }
 
 const initialState = (pin: string): GameStore => ({
@@ -94,7 +96,53 @@ export function useGameSocket(wsUrl: string | null) {
       switch (e.event) {
         case "STATE_SYNC": {
           const p: StateSyncPayload = e.payload;
-          syncServerClock(p.server_time_ms);          const next: Partial<GameStore> = {
+          syncServerClock(p.server_time_ms);
+          const prev = storeRef.current;
+          /**
+           * Jangan pernah menghapus deadline yang sudah dipegang hanya karena
+           * STATE_SYNC tidak menyertakannya — countdown akan jatuh ke 0 dan
+           * tampak beku sampai soal berganti. Saat fase PREVIEW pun, timestamp
+           * akhir preview bisa diturunkan dari durasi preview soal.
+           *
+           * Namun data waktu lama hanya boleh dipakai ulang bila soal masih
+           * sama. Jika server sudah pindah soal saat reconnect, nilai dari soal
+           * sebelumnya akan membuat countdown langsung habis/negatif.
+           */
+          const sameQuestion = !!p.question && prev.question?.index === p.question.index;
+          const deadlineMs =
+            p.status === "QUESTION"
+              ? p.deadline_ms ||
+                p.question?.deadline_ms ||
+                (sameQuestion ? prev.deadlineMs : undefined)
+              : undefined;
+          const previewEndsAtMs =
+            p.preview_ends_at_ms ||
+            (p.status === "PREVIEW"
+              ? (sameQuestion ? prev.previewEndsAtMs : undefined) ??
+                (p.question?.preview_ms ? nowServerMs() + p.question.preview_ms : undefined)
+              : undefined);
+          const leaderboard = p.leaderboard ?? [];
+          /**
+           * `is_last` tidak ada di STATE_SYNC; turunkan dari indeks agar tombol
+           * host tetap "Lihat Podium" setelah refresh di hasil soal terakhir.
+           */
+          const isLast = p.total > 0 && p.index >= p.total - 1;
+          /**
+           * STATE_SYNC hanya membawa `leaderboard` (tanpa `podium` terpisah).
+           * Saat refresh di podium, rekonstruksi 3 besar dari klasemen agar
+           * PodiumView tidak kosong (PRD §6.4 & §9).
+           */
+          const podium =
+            p.status === "PODIUM"
+              ? [...leaderboard].sort((a, b) => a.rank - b.rank).slice(0, 3)
+              : undefined;
+          const finalLeaderboard = p.status === "PODIUM" ? leaderboard : undefined;
+          /**
+           * Ringkasan jawaban & data personal hanya berlaku untuk soal yang
+           * sedang tampil. Jika server sudah pindah soal saat reconnect,
+           * jangan bawa data soal lama (bisa membuat laporan host salah).
+           */
+          apply({
             status: p.status,
             pin: p.pin,
             quizTitle: p.quiz_title,
@@ -104,12 +152,17 @@ export function useGameSocket(wsUrl: string | null) {
             question: p.question,
             yourAnswer: p.your_answer,
             correctOptionId: p.correct_option_id || undefined,
-            leaderboard: p.leaderboard ?? [],
+            answerCounts: sameQuestion ? prev.answerCounts : undefined,
+            answeredCount: sameQuestion ? prev.answeredCount : 0,
+            you: sameQuestion ? prev.you : undefined,
+            leaderboard,
             totalPlayers: p.total_players,
-            deadlineMs: p.deadline_ms || p.question?.deadline_ms,
-            previewEndsAtMs: p.preview_ends_at_ms || undefined,
-          };
-          apply(next);
+            deadlineMs,
+            previewEndsAtMs,
+            isLast,
+            podium,
+            finalLeaderboard,
+          });
           break;
         }
         case "PLAYER_JOINED": {
@@ -137,7 +190,22 @@ export function useGameSocket(wsUrl: string | null) {
           break;
         }
         case "START_GAME":
-          apply({ status: "PREVIEW", index: 0, total: e.payload.total_questions, isLast: false, podium: undefined });
+          apply({
+            status: "PREVIEW",
+            index: 0,
+            total: e.payload.total_questions,
+            isLast: false,
+            podium: undefined,
+            finalLeaderboard: undefined,
+            leaderboard: [],
+            prevRanks: undefined,
+            prevScores: undefined,
+            yourAnswer: undefined,
+            correctOptionId: undefined,
+            answerCounts: undefined,
+            answeredCount: 0,
+            you: undefined,
+          });
           break;
         case "QUESTION_PREVIEW":
           apply({
@@ -177,16 +245,20 @@ export function useGameSocket(wsUrl: string | null) {
         case "ANSWER_COUNT_UPDATE":
           apply({ answeredCount: e.payload.answered, totalPlayers: e.payload.total_players });
           break;
-        case "ANSWER_SUMMARY":
+        case "ANSWER_SUMMARY": {
+          // Fallback bila QUESTION_END tidak sampai/terlewat.
+          const total = storeRef.current.question?.total ?? storeRef.current.total;
           apply({
             status: "RESULT",
             correctOptionId: e.payload.correct_option_id,
             answerCounts: e.payload.counts,
             answeredCount: e.payload.total_answers,
             totalPlayers: e.payload.total_players,
+            isLast: total > 0 && e.payload.index >= total - 1,
             deadlineMs: undefined,
           });
           break;
+        }
         case "QUESTION_END":
           apply({ status: "RESULT", isLast: e.payload.is_last, deadlineMs: undefined });
           break;
@@ -210,9 +282,19 @@ export function useGameSocket(wsUrl: string | null) {
             previewEndsAtMs: undefined,
           });
           break;
-        case "ERROR":
-          apply({ lastError: e.payload });
+        case "ERROR": {
+          const err = e.payload;
+          if (isFatalWsError(err.code)) {
+            // Handshake gagal / sesi hilang: reconnect tidak akan pernah
+            // berhasil. Hentikan socket agar tidak looping, lalu biarkan
+            // halaman mengarahkan pengguna kembali (PRD §6.1 & §9).
+            socketRef.current?.close();
+            apply({ lastError: err, fatalError: err });
+          } else {
+            apply({ lastError: err });
+          }
           break;
+        }
       }
     },
     [apply],

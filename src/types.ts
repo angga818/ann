@@ -114,6 +114,8 @@ export interface WsQuestion {
   options: WsOption[];
   started_at_ms?: number;
   deadline_ms?: number;
+  /** Durasi fase preview (dikirim pada QUESTION_PREVIEW). */
+  preview_ms?: number;
 }
 
 export interface StateSyncPayload {

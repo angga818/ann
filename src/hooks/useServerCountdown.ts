@@ -4,12 +4,18 @@ import { nowServerMs } from "@/lib/time";
 /**
  * Countdown berbasis jam server (offset dari STATE_SYNC).
  *
- * Perbaikan bug "angka beku":
- * - rAF menggerakkan pembaruan halus saat tab terlihat; interval tetap jalan
- *   sebagai fallback (browser mem-throttle rAF & interval di tab tersembunyi).
- * - `visibilitychange`/`focus` langsung memaksa pembaruan saat kembali ke tab,
- *   sehingga tampilan menyusul realita seketika, bukan menunggu tick berikutnya.
- * - State hanya di-emit ketika nilainya berubah — hemat render.
+ * Sumber tick sengaja HANYA `setInterval` (bukan requestAnimationFrame):
+ * rAF bisa berhenti total di beberapa kondisi browser (tab background, iframe
+ * yang belum pernah di-composite, hemat baterai, driver GPU bermasalah) dan
+ * itulah yang membuat angka/bar countdown terlihat beku. Interval tetap
+ * dijalankan browser (walau di-throttle) sehingga nilai selalu maju.
+ *
+ * - Nilai selalu dihitung ulang dari `nowServerMs()` — tidak pernah
+ *   mengakumulasi selisih, jadi tidak ada drift maupun "ketinggalan".
+ * - `visibilitychange`/`focus`/`pageshow` memaksa pembaruan instan saat tab
+ *   kembali aktif, sehingga tampilan langsung menyusul.
+ * - State hanya di-emit bila berubah (dibulatkan 50 ms) → hemat render, sisa
+ *   gerakan halus ditangani animasi UI.
  */
 export function useServerCountdown(targetMs?: number | null, tick = 100): number {
   const [remaining, setRemaining] = React.useState(() =>
@@ -24,41 +30,24 @@ export function useServerCountdown(targetMs?: number | null, tick = 100): number
 
     let lastEmitted = -1;
     const update = (force = false) => {
-      const rem = Math.max(0, targetMs - nowServerMs());
+      const rem = Math.max(0, Math.round((targetMs - nowServerMs()) / 50) * 50);
       if (force || rem !== lastEmitted) {
         lastEmitted = rem;
         setRemaining(rem);
       }
-      return rem;
     };
 
-    // Emit awal sinkron.
+    // Emit awal sinkron agar tidak ada frame kosong saat soal muncul.
     update(true);
 
-    // rAF: pembaruan halus saat terlihat (berhenti otomatis saat tab hidden).
-    let rafId = 0;
-    let rafAlive = true;
-    const loop = () => {
-      if (!rafAlive) return;
-      update();
-      rafId = requestAnimationFrame(loop);
-    };
-    rafId = requestAnimationFrame(loop);
+    const intervalId = setInterval(() => update(), tick);
 
-    // Interval fallback: tetap berjalan (meski di-throttle) saat tab hidden.
-    const intervalId = setInterval(() => update(true), tick);
-
-    // Catch-up instan saat tab kembali terlihat / window fokus.
-    const catchUp = () => {
-      if (!document.hidden) update(true);
-    };
+    const catchUp = () => update(true);
     document.addEventListener("visibilitychange", catchUp);
     window.addEventListener("focus", catchUp);
     window.addEventListener("pageshow", catchUp);
 
     return () => {
-      rafAlive = false;
-      cancelAnimationFrame(rafId);
       clearInterval(intervalId);
       document.removeEventListener("visibilitychange", catchUp);
       window.removeEventListener("focus", catchUp);
@@ -67,4 +56,13 @@ export function useServerCountdown(targetMs?: number | null, tick = 100): number
   }, [targetMs, tick]);
 
   return remaining;
+}
+
+/**
+ * True bila deadline sudah lewat — dipakai untuk mengunci input tanpa
+ * menunggu event penutup dari server.
+ */
+export function useDeadlinePassed(deadlineMs?: number | null, graceMs = 0): boolean {
+  const remaining = useServerCountdown(deadlineMs);
+  return !!deadlineMs && remaining <= graceMs;
 }

@@ -3,6 +3,18 @@ import type { WsEvent } from "@/types";
 
 export type WsStatus = "connecting" | "open" | "reconnecting" | "closed";
 
+/**
+ * Kode ERROR yang berarti sesi tidak bisa dilanjutkan (handshake gagal, sesi
+ * kedaluwarsa, atau pemain sudah dihapus). Reconnect dengan token yang sama
+ * tidak akan pernah berhasil, jadi client harus berhenti mencoba dan kembali
+ * ke form join/dashboard (PRD §6.1 & §9).
+ */
+const FATAL_ERROR_CODES = new Set(["INVALID_PIN", "UNAUTHORIZED", "INVALID_ROLE", "NOT_FOUND", "PLAYER_NOT_FOUND"]);
+
+export function isFatalWsError(code: string): boolean {
+  return FATAL_ERROR_CODES.has(code);
+}
+
 type Handler = (e: WsEvent) => void;
 
 /**

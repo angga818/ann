@@ -27,7 +27,7 @@ import { useGameSocket } from "@/hooks/useGameSocket";
 import { useServerCountdown } from "@/hooks/useServerCountdown";
 import { useToast } from "@/components/toast";
 import { AvatarIcon, avatarForPlayer } from "@/lib/avatars";
-import { loadHostCreds, pushActivity } from "@/lib/storage";
+import { clearHostCreds, loadHostCreds, pushActivity } from "@/lib/storage";
 import { saveSessionReport, type ReportQuestion, type SessionReport } from "@/lib/reports";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,7 +46,8 @@ export default function HostLivePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [endConfirm, setEndConfirm] = React.useState(false);
-  const creds = loadHostCreds();
+  // Dibaca sekali saat mount: kredensial tidak berubah selama halaman live.
+  const [creds] = React.useState(() => loadHostCreds());
 
   // Tanpa kredensial host yang cocok → kembali ke dashboard.
   React.useEffect(() => {
@@ -55,6 +56,17 @@ export default function HostLivePage() {
   }, [pin, creds, navigate]);
 
   const { store, wsStatus, send, forceReconnect } = useGameSocket(creds && creds.pin === pin ? creds.ws_url : null);
+
+  // Handshake gagal / sesi kedaluwarsa → kembali ke dashboard. Socket sudah
+  // dihentikan oleh useGameSocket agar tidak reconnect tanpa akhir.
+  const fatalHandledRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!store.fatalError || fatalHandledRef.current) return;
+    fatalHandledRef.current = true;
+    clearHostCreds();
+    toast("error", "Sesi tidak tersedia", store.fatalError.message);
+    navigate("/host", { replace: true });
+  }, [store.fatalError, toast, navigate]);
 
   // Sisa waktu soal aktif — untuk mendeteksi fase "menghitung hasil".
   const remaining = useServerCountdown(store.deadlineMs);
@@ -122,11 +134,12 @@ export default function HostLivePage() {
   // Tangani error WS terakhir → toast.
   const lastErrRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (store.lastError && store.lastError.message !== lastErrRef.current) {
+    if (!store.lastError || store.fatalError) return;
+    if (store.lastError.message !== lastErrRef.current) {
       lastErrRef.current = store.lastError.message;
       toast("error", `Error: ${store.lastError.code}`, store.lastError.message);
     }
-  }, [store.lastError, toast]);
+  }, [store.lastError, store.fatalError, toast]);
 
   // URL join: origin + path + hash route (dengan PIN terisi otomatis).
   const joinUrl = `${window.location.origin}${window.location.pathname}#/join/${pin ?? ""}`;
@@ -350,7 +363,7 @@ export default function HostLivePage() {
               <PreviewCountdown
                 endsAtMs={store.previewEndsAtMs}
                 fallbackNumber={(store.question?.index ?? store.index) + 1}
-                totalMs={3000}
+                totalMs={store.question?.preview_ms ?? 3000}
                 label="Pertanyaan segera dimulai…"
               />
               {store.question && (

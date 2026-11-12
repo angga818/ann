@@ -43,7 +43,7 @@ function ReportRow({ report, onDelete }: { report: SessionReport; onDelete: (r: 
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
       transition={{ duration: 0.2 }}
-      className="relative"
+      className="group relative"
     >
       <Link
         to={`/host/reports/${report.id}`}
@@ -86,7 +86,7 @@ function ReportRow({ report, onDelete }: { report: SessionReport; onDelete: (r: 
           e.preventDefault();
           onDelete(report);
         }}
-        className="absolute right-2 top-1/2 hidden -translate-y-1/2 rounded-lg p-2 text-muted-foreground/50 transition-colors hover:bg-coral-soft hover:text-destructive group-hover:block sm:right-14"
+        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-muted-foreground/50 transition-colors hover:bg-coral-soft hover:text-destructive sm:right-14"
       >
         <Trash2 className="size-4" />
       </button>

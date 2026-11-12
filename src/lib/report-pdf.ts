@@ -80,15 +80,14 @@ export async function exportReportPdf(report: SessionReport): Promise<void> {
   y += 8;
 
   /* ------------------------- statistik ringkas -------------------------- */
+  const champion = report.leaderboard.find((e) => e.rank === 1);
   const stats: { label: string; value: string; color?: [number, number, number] }[] = [
     { label: "Pemain", value: String(report.totalPlayers) },
     { label: "Soal dimainkan", value: String(report.questions.length) },
     { label: "Rata-rata benar", value: pctText(avgCorrectRate(report.questions)), color: SUCCESS },
     {
       label: "Skor juara",
-      value: report.leaderboard[0]
-        ? `${report.leaderboard[0].score.toLocaleString("id-ID")}`
-        : "-",
+      value: champion ? `${champion.score.toLocaleString("id-ID")}` : "-",
       color: PRIMARY,
     },
   ];

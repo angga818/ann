@@ -5,9 +5,19 @@
 let serverOffsetMs = 0;
 let hasSynced = false;
 
+/** Batas bawah waktu epoch yang masuk akal (2001-09-09) — menolak 0/NaN/detik. */
+const MIN_PLAUSIBLE_MS = 1_000_000_000_000;
+/** Koreksi di bawah ini dianggap jitter latensi jaringan, bukan drift jam. */
+const JITTER_TOLERANCE_MS = 250;
+
 export function syncServerClock(serverTimeMs: number) {
-  if (!Number.isFinite(serverTimeMs)) return; // tolak nilai tidak valid (NaN/undefined)
-  serverOffsetMs = serverTimeMs - Date.now();
+  // Tolak nilai tidak valid: NaN/undefined, epoch 0, atau waktu dalam detik.
+  // Nilai seperti ini dulu membuat offset melompat jauh dan countdown beku.
+  if (!Number.isFinite(serverTimeMs) || serverTimeMs < MIN_PLAUSIBLE_MS) return;
+  const nextOffset = serverTimeMs - Date.now();
+  // Abaikan koreksi kecil agar countdown tidak mundur/melompat tiap resync.
+  if (hasSynced && Math.abs(nextOffset - serverOffsetMs) < JITTER_TOLERANCE_MS) return;
+  serverOffsetMs = nextOffset;
   hasSynced = true;
 }
 
@@ -18,7 +28,7 @@ export function syncServerClock(serverTimeMs: number) {
  * fallback ini tidak akan menimpa lagi.
  */
 export function syncServerClockFallback(serverTimeMs: number) {
-  if (hasSynced || !Number.isFinite(serverTimeMs)) return;
+  if (hasSynced || !Number.isFinite(serverTimeMs) || serverTimeMs < MIN_PLAUSIBLE_MS) return;
   serverOffsetMs = serverTimeMs - Date.now();
   hasSynced = true;
 }
