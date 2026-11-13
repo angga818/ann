@@ -5,6 +5,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --no-audit --no-fund
 
+# Origin API bisa diganti saat build (mis. lewat Dokploy build args).
+ARG VITE_API_BASE_URL=https://api.workilham.my.id
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
 COPY . .
 RUN npm run build
 

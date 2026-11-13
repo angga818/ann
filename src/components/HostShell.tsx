@@ -1,8 +1,10 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ChartColumn, Gamepad2, Home, LibraryBig, Plus } from "lucide-react";
+import { ChartColumn, Gamepad2, Home, LibraryBig, Plus, Users } from "lucide-react";
 import { NavLink, Link } from "react-router-dom";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserMenu } from "@/components/auth/UserMenu";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +16,10 @@ const NAV = [
 
 /** Kerangka halaman host: sidebar di desktop, top-bar di mobile. */
 export function HostShell({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  // Link user management hanya untuk admin (PRD Auth §3.5).
+  const nav = user?.role === "admin" ? [...NAV, { to: "/host/users", label: "Kelola User", icon: Users, end: false }] : NAV;
+
   return (
     <div className="flex min-h-dvh">
       {/* Sidebar desktop */}
@@ -22,7 +28,7 @@ export function HostShell({ children }: { children: React.ReactNode }) {
           <Logo />
         </Link>
         <nav className="flex flex-col gap-1">
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
@@ -40,6 +46,9 @@ export function HostShell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
         <div className="mt-auto space-y-3">
+          <div className="border-t border-border pt-3">
+            <UserMenu placement="up" />
+          </div>
           <Button asChild variant="soft" className="w-full justify-start">
             <Link to="/host/quiz/new">
               <Plus /> Kuis Baru
@@ -61,7 +70,7 @@ export function HostShell({ children }: { children: React.ReactNode }) {
             <Logo compact />
           </Link>
           <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
-            {NAV.map((n) => (
+            {nav.map((n) => (
               <NavLink
                 key={n.to}
                 to={n.to}
@@ -79,6 +88,7 @@ export function HostShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
           <ThemeToggle />
+          <UserMenu placement="down" />
         </header>
 
         <motion.main

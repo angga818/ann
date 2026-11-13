@@ -1,5 +1,42 @@
 /** REST + WebSocket contracts (PRD §5–§6) */
 
+/* ------------------------------- Auth/RBAC ------------------------------- */
+
+export type AuthRole = "host" | "admin" | "superadmin";
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  email: string;
+  role: AuthRole;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AuthSession {
+  access_token: string;
+  user: AuthUser;
+}
+
+/** User yang dikelola admin (backend hanya mengembalikan role host). */
+export interface ManagedUser extends AuthUser {
+  last_login_at?: string;
+}
+
+export interface CreateUserInput {
+  username: string;
+  email: string;
+  password: string;
+  role: "host";
+}
+
+export interface UpdateUserInput {
+  role?: "host";
+  is_active?: boolean;
+}
+
+
 export interface ApiErrorBody {
   error: { code: string; message: string };
 }

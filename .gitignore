@@ -8,6 +8,9 @@ tsconfig.tsbuildinfo
 # logs & misc
 *.log
 *.local
+.env
+.env.*
+!.env.example
 .DS_Store
 
 # editor

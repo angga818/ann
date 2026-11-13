@@ -1,4 +1,7 @@
-import axios, { AxiosError } from "axios";
+import axios from "axios";
+import { API_BASE_URL, API_V1 } from "@/lib/api-config";
+import { refreshSession } from "@/lib/auth-api";
+import { installAuthInterceptors } from "@/lib/http-auth";
 import type {
   ApiErrorBody,
   CreateSessionResponse,
@@ -10,15 +13,16 @@ import type {
   UploadResponse,
 } from "@/types";
 
-/** Origin API tunggal — semua path relatif digabungkan ke sini. */
-export const API_BASE_URL = "https://api.workilham.my.id";
-export const API_V1 = `${API_BASE_URL}/api/v1`;
+export { API_BASE_URL, API_V1 };
 
 export const http = axios.create({
   baseURL: API_V1,
   timeout: 20000,
   headers: { "Content-Type": "application/json" },
 });
+
+// Semua request api mengikuti access token; 401 → refresh sekali lalu retry.
+installAuthInterceptors(http, refreshSession);
 
 /** Ubah path relatif (mis. /api/v1/media/...) menjadi URL absolut API. */
 export function absoluteUrl(url?: string | null): string | undefined {

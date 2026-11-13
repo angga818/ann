@@ -158,7 +158,7 @@ export default function HomePage() {
 
       <footer className="border-t border-border py-6">
         <p className="text-center text-xs text-muted-foreground/70">
-          QuizLive — frontend untuk API <span className="font-mono">api.workilham.my.id</span>
+          QuizLive — kuis multiplayer real-time. Semua orang ikut main.
         </p>
       </footer>
     </div>

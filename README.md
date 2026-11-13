@@ -13,18 +13,68 @@
 
 ## Konfigurasi API
 
-Semua request REST dan WebSocket mengarah ke:
+Semua request REST dan WebSocket mengarah ke origin `API_BASE_URL` di
+`src/lib/api.ts`, yang bisa diatur lewat env **`VITE_API_BASE_URL`**
+(nilai bawaan: `https://api.workilham.my.id`).
 
-```
-https://api.workilham.my.id
+```bash
+cp .env.example .env
+# lalu ubah VITE_API_BASE_URL, mis. http://localhost:8080
 ```
 
-Didefinisikan di `src/lib/api.ts` (`API_BASE_URL`). Path relatif dari backend
-(mis. `ws_url`, `cover_image_url`) otomatis digabungkan ke origin tersebut,
-sesuai aturan URL pada PRD §3.
+Ini berguna bila domain API diblokir jaringan kantor atau backend sedang
+pindah host: cukup ganti env / build arg, tanpa mengubah kode. Saat build
+Docker, kirim sebagai build arg:
+
+```bash
+docker build --build-arg VITE_API_BASE_URL=https://api-baru.contoh.com -t quizlive-frontend .
+```
+
+Path relatif dari backend (mis. `ws_url`, `cover_image_url`) otomatis
+digabungkan ke origin tersebut, sesuai aturan URL pada PRD §3.
 
 > Pastikan origin frontend Anda dimasukkan ke `CORS_ORIGINS` di backend,
 > termasuk allowlist origin WebSocket.
+
+### Jika domain API diblokir jaringan kantor
+
+Gejala umum: request gagal dengan `net::ERR_CERT_AUTHORITY_INVALID`,
+`ERR_CONNECTION_RESET`, `403`, atau halaman host menampilkan "Tidak dapat
+memeriksa sesi". Sertifikat yang diterbitkan Fortinet/bukan penerbit publik
+menandakan firewall kantor melakukan **SSL inspection**, bukan masalah kode.
+
+Pilihan yang bisa dipakai:
+
+1. **Jaringan lain** — hotspot seluler atau VPN yang diizinkan; paling cepat.
+2. **Allowlist IT** — minta domain frontend dan `api.workilham.my.id`
+   dikecualikan dari SSL inspection/blokir kategori.
+3. **Domain baru** — pindahkan backend ke domain lain, lalu build frontend
+   dengan `VITE_API_BASE_URL` (atau build arg Docker) tanpa mengubah kode.
+   Jangan lupa perbarui `CORS_ORIGINS` dan setelan cookie refresh.
+4. **Reverse proxy same-origin** — sajikan frontend dan API di satu domain
+   (mis. Nginx/Cloudflare di `/api`), lalu set `VITE_API_BASE_URL` ke origin
+   tersebut. Ini juga menghindari masalah cookie lintas situs.
+
+## Autentikasi (host/admin)
+
+Area `/host` dilindungi login; halaman pemain (`/join`, `/play/:pin`) dan
+landing tetap publik. Detail kontrak ada di `PRD-AUTH-INTEGRATION.md`.
+
+- `access_token` disimpan **hanya di memory** (`src/lib/auth-store.ts`).
+- `refresh_token` adalah cookie `HttpOnly` milik browser; semua request auth
+  memakai `withCredentials`.
+- Saat aplikasi dibuka, `POST /auth/refresh` mencoba memulihkan sesi; error
+  jaringan/5xx menampilkan tombol retry, bukan logout paksa.
+- Request quiz yang mendapat `401` otomatis refresh sekali (single-flight per
+  tab + lock antar-tab) lalu retry sekali.
+- `superadmin` tidak didukung: login dengan role ini langsung di-logout dan
+  ditampilkan pesan bahwa role tidak didukung.
+- Admin mendapat menu **Kelola User** (`/host/users`) untuk mengelola akun host;
+  role selalu dikunci `host`.
+
+Karena cookie refresh dipakai lintas origin, backend harus mengirim
+`SameSite=None; Secure` di production dan mengizinkan credentials untuk origin
+frontend secara eksplisit (bukan `*`).
 
 ## Menjalankan
 
