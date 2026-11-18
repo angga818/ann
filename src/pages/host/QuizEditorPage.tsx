@@ -388,6 +388,8 @@ function QuestionCard({
 
 /* ------------------------------- halaman ------------------------------- */
 
+export type QuizMode = "quiz-live" | "ular-tangga";
+
 export default function QuizEditorPage() {
   const { quizId } = useParams<{ quizId?: string }>();
   const isEdit = !!quizId;
@@ -397,6 +399,7 @@ export default function QuizEditorPage() {
   const [title, setTitle] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [cover, setCover] = React.useState("");
+  const [mode, setMode] = React.useState<QuizMode>("quiz-live");
   const [questions, setQuestions] = React.useState<FormQuestion[]>([]);
   const [issues, setIssues] = React.useState<ValidationIssue[]>([]);
   const [loading, setLoading] = React.useState(isEdit);
@@ -506,6 +509,7 @@ export default function QuizEditorPage() {
             color_index: o.color_index,
           })),
         })),
+        mode,
       };
       if (isEdit) {
         await updateQuiz(quizId!, payload);
@@ -523,7 +527,12 @@ export default function QuizEditorPage() {
           detail: `${payload.questions.length} soal`,
         });
         toast("success", "Kuis dibuat", `“${created.title}” siap digunakan.`);
-        navigate(`/host/quiz/${created.id}`, { replace: true });
+        // Navigasi berdasarkan mode
+        if (mode === "ular-tangga") {
+          navigate(`/host/ular-tangga`, { replace: true });
+        } else {
+          navigate(`/host/quiz/${created.id}`, { replace: true });
+        }
       }
     } catch (e) {
       toast("error", "Gagal menyimpan", apiErrorMessage(e));
@@ -620,6 +629,31 @@ export default function QuizEditorPage() {
               <ImageField label="Cover" value={cover} onChange={setCover} />
             </div>
           </div>
+        </section>
+        {/* Pilih mode game */}
+        <section className="mb-4 rounded-2xl border border-border bg-card p-4">
+          <h2 className="mb-3 font-display text-sm font-bold">Pilih Mode Game</h2>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMode("quiz-live")}
+              className={cn(mode === "quiz-live" ? "border-primary" : "border-border", mode === "quiz-live" ? "text-primary" : "text-foreground")}
+            >
+              Quiz Live (QuizLive)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMode("ular-tangga")}
+              className={cn(mode === "ular-tangga" ? "border-primary" : "border-border", mode === "ular-tangga" ? "text-primary" : "text-foreground")}
+            >
+              Ular Tangga (PRD)
+            </Button>
+          </div>
+          <p className="mt-2 text-[10px] text-muted-foreground/60">
+            Mode ini menentukan jenis game yang dibuat. Mudah-dikembangkan lagi nanti.
+          </p>
         </section>
 
         {/* Daftar soal */}
