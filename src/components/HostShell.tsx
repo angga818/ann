@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ChartColumn, Gamepad2, Home, LibraryBig, Plus, Users } from "lucide-react";
+import { ChartColumn, Dices, Gamepad2, Home, LibraryBig, Plus, Users } from "lucide-react";
 import { NavLink, Link } from "react-router-dom";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { to: "/host", label: "Dashboard", icon: Home, end: true },
   { to: "/host/library", label: "Library Kuis", icon: LibraryBig, end: false },
+  { to: "/host/snakes", label: "Ular Tangga", icon: Dices, end: false },
   { to: "/host/reports", label: "Laporan Sesi", icon: ChartColumn, end: false },
 ];
 

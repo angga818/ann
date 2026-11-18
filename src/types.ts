@@ -55,11 +55,47 @@ export interface QuizQuestionInput {
   options: QuizOptionInput[];
 }
 
+/* ---------------- Game mode (QuizLive / Snakes & Ladders) ---------------- */
+
+/** PRD §1.2 / §2.1 — dua mode permainan dalam satu platform. */
+export type GameMode = "QUIZ" | "SNAKES_AND_LADDERS";
+
+/** PRD §2.3 — CUSTOM: soal pilihan host. RANDOM: soal diambil acak dari bank soal. */
+export type QuestionMode = "CUSTOM" | "RANDOM";
+
+/** PRD §5 — lima tema papan (map 1–5). */
+export type MapThemeId = 1 | 2 | 3 | 4 | 5;
+
+/** PRD §6 — tiga karakter asli pengguna (desain karakter 1–3). */
+export type CharacterId = 1 | 2 | 3;
+
+/** PRD §3.3 — hasil dadu 1–6 = tingkat kesulitan 1–6. */
+export type DifficultyLevel = 1 | 2 | 3 | 4 | 5 | 6;
+
+/** PRD §2.2 / §10.2 — konfigurasi khusus Snakes & Ladders. */
+export interface SnakesGameConfig {
+  map_id: MapThemeId;
+  question_mode: QuestionMode;
+  answer_time_limit: number;
+  max_players: number;
+  game_duration_minutes?: number;
+  character_id?: CharacterId;
+}
+
+/** Metadata mode yang disimpan lokal (backend belum punya field ini). */
+export interface QuizGameMeta {
+  game_mode: GameMode;
+  config: SnakesGameConfig;
+}
+
 export interface QuizInput {
   title: string;
   description?: string;
   cover_image_url?: string;
   questions: QuizQuestionInput[];
+  /** Opsional: dikirim hanya bila backend mendukung (default QUIZ). */
+  game_mode?: GameMode;
+  game_config?: SnakesGameConfig;
 }
 
 export interface QuizListItem {
@@ -90,6 +126,9 @@ export interface QuizQuestion {
 
 export interface QuizDetail extends QuizListItem {
   questions: QuizQuestion[];
+  /** Diisi backend bila sudah mendukung; frontend memakai fallback lokal. */
+  game_mode?: GameMode;
+  game_config?: SnakesGameConfig;
 }
 
 export interface CreateSessionResponse {

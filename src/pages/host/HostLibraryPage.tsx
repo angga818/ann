@@ -2,6 +2,7 @@ import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Clock,
+  Dices,
   ListChecks,
   MoreVertical,
   Pencil,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiErrorMessage, createSession, deleteQuiz, listQuizzes } from "@/lib/api";
+import { getQuizGameMode } from "@/lib/snakes-meta";
 import type { QuizListItem } from "@/types";
 import { HostShell } from "@/components/HostShell";
 import { QuizThumb } from "@/components/QuizThumb";
@@ -78,6 +80,16 @@ export default function HostLibraryPage() {
   async function handleStart(quiz: QuizListItem) {
     setStartingId(quiz.id);
     try {
+      // Mode Ular Tangga memakai papan game khusus, bukan sesi QuizLive.
+      if (getQuizGameMode(quiz.id) === "SNAKES_AND_LADDERS") {
+        pushActivity({
+          type: "session-hosted",
+          label: `Membuka Ular Tangga “${quiz.title}”`,
+          detail: `${quiz.question_count} soal`,
+        });
+        navigate(`/host/snakes/${quiz.id}`);
+        return;
+      }
       const s = await createSession(quiz.id);
       saveHostCreds(s);
       pushActivity({
@@ -252,6 +264,11 @@ export default function HostLibraryPage() {
                       <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{quiz.description}</p>
                     )}
                     <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {getQuizGameMode(quiz.id) === "SNAKES_AND_LADDERS" && (
+                        <Badge className="bg-accent-soft text-accent">
+                          <Dices /> Ular Tangga
+                        </Badge>
+                      )}
                       <Badge variant="secondary">
                         <ListChecks /> {quiz.question_count} soal
                       </Badge>

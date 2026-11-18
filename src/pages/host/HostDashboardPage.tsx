@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiErrorMessage, createSession, listQuizzes } from "@/lib/api";
+import { getQuizGameMode } from "@/lib/snakes-meta";
 import type { QuizListItem } from "@/types";
 import { HostShell } from "@/components/HostShell";
 import { QuizThumb } from "@/components/QuizThumb";
@@ -77,6 +78,16 @@ export default function HostDashboardPage() {
   async function handleStart(quiz: QuizListItem) {
     setStartingId(quiz.id);
     try {
+      // Kuis ber-mode Ular Tangga dibuka di papan game, bukan sesi QuizLive.
+      if (getQuizGameMode(quiz.id) === "SNAKES_AND_LADDERS") {
+        pushActivity({
+          type: "session-hosted",
+          label: `Membuka Ular Tangga “${quiz.title}”`,
+          detail: `${quiz.question_count} soal`,
+        });
+        navigate(`/host/snakes/${quiz.id}`);
+        return;
+      }
       const s = await createSession(quiz.id);
       saveHostCreds(s);
       pushActivity({
@@ -219,6 +230,11 @@ export default function HostDashboardPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{q.title}</p>
                       <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        {getQuizGameMode(q.id) === "SNAKES_AND_LADDERS" && (
+                          <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-bold text-accent">
+                            Ular Tangga
+                          </span>
+                        )}
                         <span className="inline-flex items-center gap-1">
                           <ListChecks className="size-3" /> {q.question_count} soal
                         </span>

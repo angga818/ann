@@ -10,6 +10,7 @@ import UsersPage from "@/pages/host/UsersPage";
 import HostDashboardPage from "@/pages/host/HostDashboardPage";
 import HostLibraryPage from "@/pages/host/HostLibraryPage";
 import QuizEditorPage from "@/pages/host/QuizEditorPage";
+import SnakesGamePage from "@/pages/host/SnakesGamePage";
 import HostLivePage from "@/pages/host/HostLivePage";
 import HostReportsPage from "@/pages/host/HostReportsPage";
 import HostReportDetailPage from "@/pages/host/HostReportDetailPage";
@@ -38,6 +39,8 @@ export default function App() {
                   <Route path="/host/library" element={<HostLibraryPage />} />
                   <Route path="/host/quiz/new" element={<QuizEditorPage />} />
                   <Route path="/host/quiz/:quizId" element={<QuizEditorPage />} />
+                  <Route path="/host/snakes" element={<SnakesGamePage />} />
+                  <Route path="/host/snakes/:quizId" element={<SnakesGamePage />} />
                   <Route path="/host/live/:pin" element={<HostLivePage />} />
                   <Route path="/host/reports" element={<HostReportsPage />} />
                   <Route path="/host/reports/:reportId" element={<HostReportDetailPage />} />

@@ -2,19 +2,34 @@ import * as React from "react";
 import { AnimatePresence, motion, Reorder } from "framer-motion";
 import {
   ArrowLeft,
+  ArrowRight,
   Check,
   CheckCircle2,
+  Dices,
   FileUp,
+  Gamepad2,
   GripVertical,
   ImagePlus,
   Loader2,
   Plus,
+  RotateCcw,
+  Settings2,
   Trash2,
+  Trophy,
   Upload,
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiErrorMessage, createQuiz, getQuiz, updateQuiz, uploadImage } from "@/lib/api";
-import type { QuizQuestionInput } from "@/types";
+import { CHARACTERS, DEFAULT_SNAKES_CONFIG, MAP_THEMES } from "@/lib/snakes";
+import { loadQuizGameMeta, saveQuizGameMeta } from "@/lib/snakes-meta";
+import type {
+  CharacterId,
+  GameMode,
+  MapThemeId,
+  QuestionMode,
+  QuizQuestionInput,
+  SnakesGameConfig,
+} from "@/types";
 import { Logo } from "@/components/Logo";
 import { PageTransition } from "@/components/common";
 import { SmartImage } from "@/components/SmartImage";
@@ -386,6 +401,267 @@ function QuestionCard({
   );
 }
 
+/* -------------------- langkah 1: pilih mode permainan ------------------- */
+
+function ModeSelection({ onSelect }: { onSelect: (mode: GameMode) => void }) {
+  const cards = [
+    {
+      mode: "QUIZ" as GameMode,
+      icon: Gamepad2,
+      title: "QuizLive",
+      subtitle: "Seperti Kahoot",
+      description:
+        "Kuis multiplayer klasik. Semua pemain menjawab soal yang sama secara bersamaan, lalu lihat papan peringkat.",
+      points: ["Jawab serentak", "Countdown & poin", "Podium real-time"],
+      accent: "text-primary",
+      tint: "bg-primary-soft",
+    },
+    {
+      mode: "SNAKES_AND_LADDERS" as GameMode,
+      icon: Dices,
+      title: "Ular Tangga",
+      subtitle: "Edukasi bergiliran",
+      description:
+        "Lempar dadu, jawab soal sesuai tingkat kesulitan, lalu gerakkan karakter di papan ular tangga 100 kotak.",
+      points: ["Dadu 1–6 = level soal", "5 tema papan & 3 karakter", "Tangga naik, ular turun"],
+      accent: "text-accent",
+      tint: "bg-accent-soft",
+    },
+  ];
+
+  return (
+    <div className="flex min-h-dvh flex-col">
+      <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
+        <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-4">
+            <Button asChild variant="ghost" size="icon">
+              <Link to="/host" title="Kembali">
+                <ArrowLeft />
+              </Link>
+            </Button>
+            <Logo compact />
+          </div>
+          <ThemeToggle />
+        </div>
+      </header>
+
+      <PageTransition className="max-w-5xl">
+        <div className="mb-9 text-center">
+          <motion.span
+            initial={{ scale: 0.6, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 260, damping: 18 }}
+            className="mx-auto mb-5 grid size-14 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-sm"
+          >
+            <Plus className="size-7" />
+          </motion.span>
+          <h1 className="font-display text-3xl font-bold tracking-tight">Buat Kuis Baru</h1>
+          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
+            Pilih dulu mode permainannya. Setelah itu Anda akan diatur halaman pengisian soal untuk mode tersebut.
+          </p>
+          <div className="mt-5 flex items-center justify-center gap-2 text-xs font-semibold text-primary">
+            <span className="grid size-6 place-items-center rounded-full bg-primary text-primary-foreground">1</span>
+            Pilih Mode
+            <span className="h-px w-8 bg-border" />
+            <span className="grid size-6 place-items-center rounded-full bg-secondary text-muted-foreground">2</span>
+            Isi Soal
+          </div>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-2">
+          {cards.map((c, i) => (
+            <motion.button
+              key={c.mode}
+              type="button"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.08, type: "spring", stiffness: 260, damping: 22 }}
+              whileHover={{ y: -4 }}
+              whileTap={{ scale: 0.99 }}
+              onClick={() => onSelect(c.mode)}
+              className="group flex flex-col rounded-3xl border border-border bg-card p-7 text-left shadow-sm transition-colors hover:border-primary/50 hover:shadow-lg"
+            >
+              <div className="flex items-start justify-between">
+                <span className={cn("grid size-14 place-items-center rounded-2xl", c.tint, c.accent)}>
+                  <c.icon className="size-7" />
+                </span>
+                <span className="rounded-full bg-secondary px-3 py-1 text-[11px] font-bold text-muted-foreground">
+                  {c.subtitle}
+                </span>
+              </div>
+              <h2 className="mt-5 font-display text-2xl font-bold">{c.title}</h2>
+              <p className="mt-2 min-h-16 text-sm leading-relaxed text-muted-foreground">{c.description}</p>
+              <ul className="mt-4 space-y-2 border-t border-border pt-4">
+                {c.points.map((p) => (
+                  <li key={p} className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    <Check className={cn("size-3.5", c.accent)} strokeWidth={3} /> {p}
+                  </li>
+                ))}
+              </ul>
+              <span className="mt-6 flex items-center gap-2 text-sm font-bold text-primary">
+                Pilih mode ini <ArrowRight className="transition-transform group-hover:translate-x-1" />
+              </span>
+            </motion.button>
+          ))}
+        </div>
+      </PageTransition>
+    </div>
+  );
+}
+
+/* --------------- langkah 2a: konfigurasi khusus Ular Tangga ------------- */
+
+function SnakesConfigPanel({
+  config,
+  onChange,
+  quizId,
+}: {
+  config: SnakesGameConfig;
+  onChange: (patch: Partial<SnakesGameConfig>) => void;
+  quizId?: string;
+}) {
+  return (
+    <div className="mt-5 border-t border-border pt-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 font-display text-sm font-bold">
+          <Settings2 className="size-4 text-accent" /> Konfigurasi Ular Tangga
+        </h3>
+        {quizId && (
+          <Button asChild variant="soft" size="sm">
+            <Link to={`/host/snakes/${quizId}`}>
+              <Dices /> Buka Papan Game
+            </Link>
+          </Button>
+        )}
+      </div>
+
+      <div className="space-y-5">
+        {/* Tema papan */}
+        <div className="space-y-2">
+          <Label>Tema Papan (Map) *</Label>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            {MAP_THEMES.map((m) => {
+              const active = config.map_id === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  title={m.description}
+                  onClick={() => onChange({ map_id: m.id as MapThemeId })}
+                  className={cn(
+                    "overflow-hidden rounded-xl border-2 text-left transition-all",
+                    active ? "border-primary shadow-sm" : "border-border hover:border-foreground/25",
+                  )}
+                >
+                  <div className="relative h-16 w-full bg-secondary">
+                    <img src={m.asset} alt={m.name} className="size-full object-cover" />
+                    {active && (
+                      <span className="absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground">
+                        <Check className="size-3" strokeWidth={3.5} />
+                      </span>
+                    )}
+                  </div>
+                  <div className="px-2 py-2">
+                    <p className="truncate text-[11px] font-bold">{m.name}</p>
+                    <p className="text-[10px] text-muted-foreground">Map {m.id}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Mode pertanyaan */}
+          <div className="space-y-2">
+            <Label>Mode Pertanyaan</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["CUSTOM", "RANDOM"] as QuestionMode[]).map((qm) => (
+                <button
+                  key={qm}
+                  type="button"
+                  onClick={() => onChange({ question_mode: qm })}
+                  className={cn(
+                    "rounded-xl border px-3 py-2.5 text-xs font-bold transition-colors",
+                    config.question_mode === qm
+                      ? "border-primary bg-primary-soft text-primary"
+                      : "border-border text-muted-foreground hover:bg-secondary",
+                  )}
+                >
+                  {qm === "CUSTOM" ? "Custom (soal ini)" : "Random (dari bank)"}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground/70">
+              Mode Random mengambil soal secara acak dari kumpulan soal yang Anda buat.
+            </p>
+          </div>
+
+          {/* Karakter host */}
+          <div className="space-y-2">
+            <Label>Karakter Anda</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {CHARACTERS.map((c) => {
+                const active = (config.character_id ?? 1) === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    title={c.role}
+                    onClick={() => onChange({ character_id: c.id as CharacterId })}
+                    className={cn(
+                      "flex flex-col items-center gap-1 rounded-xl border-2 p-2 transition-all",
+                      active ? "border-primary bg-primary-soft" : "border-border hover:border-foreground/25",
+                    )}
+                  >
+                    <img src={c.asset} alt={c.name} className="h-14 w-full object-contain" />
+                    <span className="text-[10px] font-bold">{c.role}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="space-y-2">
+            <Label>Batas Waktu Jawab (detik)</Label>
+            <Input
+              type="number"
+              min={5}
+              max={120}
+              value={config.answer_time_limit}
+              onChange={(e) => onChange({ answer_time_limit: Number(e.target.value) || 20 })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Batas Pemain</Label>
+            <Input
+              type="number"
+              min={2}
+              max={20}
+              value={config.max_players}
+              onChange={(e) => onChange({ max_players: Number(e.target.value) || 4 })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Durasi Game (menit, opsional)</Label>
+            <Input
+              type="number"
+              min={0}
+              max={120}
+              value={config.game_duration_minutes ?? 0}
+              onChange={(e) =>
+                onChange({ game_duration_minutes: Number(e.target.value) || undefined })
+              }
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------- halaman ------------------------------- */
 
 export default function QuizEditorPage() {
@@ -393,6 +669,12 @@ export default function QuizEditorPage() {
   const isEdit = !!quizId;
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // null = pengguna belum memilih mode (langkah pertama "Buat Kuis").
+  const [mode, setMode] = React.useState<GameMode | null>(isEdit ? "QUIZ" : null);
+  const [snakesConfig, setSnakesConfig] = React.useState<SnakesGameConfig>({
+    ...DEFAULT_SNAKES_CONFIG,
+  });
 
   const [title, setTitle] = React.useState("");
   const [description, setDescription] = React.useState("");
@@ -449,6 +731,9 @@ export default function QuizEditorPage() {
       try {
         const quiz = await getQuiz(quizId);
         if (!alive) return;
+        const meta = loadQuizGameMeta(quizId);
+        setMode(meta?.game_mode ?? "QUIZ");
+        if (meta?.config) setSnakesConfig(meta.config);
         setTitle(quiz.title);
         setDescription(quiz.description ?? "");
         setCover(quiz.cover_image_url ?? "");
@@ -507,8 +792,10 @@ export default function QuizEditorPage() {
           })),
         })),
       };
+      const finalMode: GameMode = mode ?? "QUIZ";
       if (isEdit) {
         await updateQuiz(quizId!, payload);
+        saveQuizGameMeta(quizId!, { game_mode: finalMode, config: snakesConfig });
         pushActivity({
           type: "quiz-updated",
           label: `Memperbarui kuis “${payload.title}”`,
@@ -517,6 +804,7 @@ export default function QuizEditorPage() {
         toast("success", "Kuis tersimpan", "Perubahan telah disimpan.");
       } else {
         const created = await createQuiz(payload);
+        saveQuizGameMeta(created.id, { game_mode: finalMode, config: snakesConfig });
         pushActivity({
           type: "quiz-created",
           label: `Membuat kuis “${created.title}”`,
@@ -540,6 +828,9 @@ export default function QuizEditorPage() {
     );
   }
 
+  // Langkah pertama: pengguna belum memilih mode → tampilkan hanya pilihan mode.
+  if (mode === null) return <ModeSelection onSelect={setMode} />;
+
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
@@ -552,7 +843,7 @@ export default function QuizEditorPage() {
             </Button>
             <Logo compact />
             <span className="hidden font-display text-sm font-bold text-muted-foreground sm:block">
-              {isEdit ? "Edit Kuis" : "Kuis Baru"}
+              {isEdit ? "Edit Kuis" : "Kuis Baru"} · {mode === "QUIZ" ? "QuizLive" : "Ular Tangga"}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -567,6 +858,41 @@ export default function QuizEditorPage() {
       </header>
 
       <PageTransition className="max-w-5xl">
+        {/* Mode yang dipilih + konfigurasi khusus Ular Tangga */}
+        <section className="mb-6 rounded-2xl border border-border bg-card p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span
+                className={cn(
+                  "grid size-11 place-items-center rounded-xl",
+                  mode === "QUIZ" ? "bg-primary-soft text-primary" : "bg-accent-soft text-accent",
+                )}
+              >
+                {mode === "QUIZ" ? <Gamepad2 className="size-5" /> : <Dices className="size-5" />}
+              </span>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Mode permainan · langkah 1 dari 2
+                </p>
+                <p className="font-display text-base font-bold">
+                  {mode === "QUIZ" ? "QuizLive (seperti Kahoot)" : "Ular Tangga Edukasi"}
+                </p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setMode(null)}>
+              <RotateCcw /> Ganti Mode
+            </Button>
+          </div>
+
+          {mode === "SNAKES_AND_LADDERS" && (
+            <SnakesConfigPanel
+              config={snakesConfig}
+              onChange={(patch) => setSnakesConfig((prev) => ({ ...prev, ...patch }))}
+              quizId={quizId}
+            />
+          )}
+        </section>
+
         {/* Ringkasan masalah validasi */}
         <AnimatePresence>
           {issues.length > 0 && (
