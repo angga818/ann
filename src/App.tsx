@@ -15,6 +15,7 @@ import HostReportsPage from "@/pages/host/HostReportsPage";
 import HostReportDetailPage from "@/pages/host/HostReportDetailPage";
 import JoinPage from "@/pages/player/JoinPage";
 import PlayerLivePage from "@/pages/player/PlayerLivePage";
+import UlarTanggaPage from "@/pages/host/UlarTanggaPage";
 
 export default function App() {
   return (
@@ -41,6 +42,7 @@ export default function App() {
                   <Route path="/host/live/:pin" element={<HostLivePage />} />
                   <Route path="/host/reports" element={<HostReportsPage />} />
                   <Route path="/host/reports/:reportId" element={<HostReportDetailPage />} />
+                  <Route path="/host/ular-tangga" element={<UlarTanggaPage />} />
 
                   {/* User management: admin saja */}
                   <Route element={<RequireAdmin />}>
