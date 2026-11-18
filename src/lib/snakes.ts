@@ -100,37 +100,35 @@ export interface GameCharacter {
 }
 
 export const CHARACTERS: GameCharacter[] = [
-  { id: 1, name: "Karakter 1", role: "Karakter 1", asset: "/assets/characters/character1.jpeg" },
-  { id: 2, name: "Karakter 2", role: "Karakter 2", asset: "/assets/characters/character2.jpeg" },
-  { id: 3, name: "Karakter 3", role: "Karakter 3", asset: "/assets/characters/character3.jpeg" },
-  { id: 4, name: "Karakter 4", role: "Karakter 4", asset: "/assets/characters/character4.jpeg" },
-  { id: 5, name: "Karakter 5", role: "Karakter 5", asset: "/assets/characters/character5.jpeg" },
-  { id: 6, name: "Karakter 6", role: "Karakter 6", asset: "/assets/characters/character6.jpeg" },
-  { id: 7, name: "Karakter 7", role: "Karakter 7", asset: "/assets/characters/character7.jpeg" },
+  { id: 1, name: "Karakter 1", role: "Karakter 1", asset: "/assets/characters/character1.png" },
+  { id: 2, name: "Karakter 2", role: "Karakter 2", asset: "/assets/characters/character2.png" },
+  { id: 3, name: "Karakter 3", role: "Karakter 3", asset: "/assets/characters/character3.png" },
+  { id: 4, name: "Karakter 4", role: "Karakter 4", asset: "/assets/characters/character4.png" },
+  { id: 5, name: "Karakter 5", role: "Karakter 5", asset: "/assets/characters/character5.png" },
+  { id: 6, name: "Karakter 6", role: "Karakter 6", asset: "/assets/characters/character6.png" },
+  { id: 7, name: "Karakter 7", role: "Karakter 7", asset: "/assets/characters/character7.png" },
 ];
 
 /**
- * Area papan di dalam gambar map. Gambar map 1–5 adalah papan itu sendiri
- * (2400 × 1792), jadi yang digambar frontend hanya token karakternya.
- * Dua preset disediakan karena sebagian map menggambar grid penuh,
- * sebagian lagi menyisipkan area permainan persegi di tengah.
+ * Gambar map 1–5 (2400 × 1792) dipakai sebagai permukaan papan.
+ * Area jalur 100 kotak adalah persegi 1792 × 1792 di tengah gambar,
+ * sehingga koordinatnya identik di kelima tema (PRD §5.1).
  */
-export const TOKEN_AREAS = {
-  penuh: { x: 0, y: 0, w: 1, h: 1, label: "Penuh" },
-  tengah: { x: 0.1267, y: 0, w: 0.7467, h: 1, label: "Tengah" },
+export const BOARD_AREA = {
+  x: (2400 - 1792) / 2 / 2400, // 12,67%
+  y: 0,
+  size: 1792 / 2400, // 74,67%
 } as const;
 
-export type TokenAreaKey = keyof typeof TOKEN_AREAS;
-
-/** Posisi & ukuran token untuk sebuah kotak, relatif terhadap gambar map. */
-export function tokenRect(cell: number, area: TokenAreaKey) {
+/** Posisi sebuah kotak di dalam area papan, dalam persen (0–100). */
+export function cellRect(cell: number) {
   const { row, col } = cellToCoords(cell);
-  const a = TOKEN_AREAS[area];
   return {
-    left: `${(a.x + (col / BOARD_COLS) * a.w) * 100}%`,
-    top: `${(a.y + (row / BOARD_COLS) * a.h) * 100}%`,
-    width: `${a.w * (100 / BOARD_COLS)}%`,
-    height: `${a.h * (100 / BOARD_COLS)}%`,
+    left: col * (100 / BOARD_COLS),
+    top: row * (100 / BOARD_COLS),
+    size: 100 / BOARD_COLS,
+    cx: (col + 0.5) * (100 / BOARD_COLS),
+    cy: (row + 0.5) * (100 / BOARD_COLS),
   };
 }
 

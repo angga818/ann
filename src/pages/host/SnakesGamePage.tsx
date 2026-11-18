@@ -23,21 +23,23 @@ import { Link, useParams } from "react-router-dom";
 import { apiErrorMessage, getQuiz, listQuizzes } from "@/lib/api";
 import { optionStyle } from "@/lib/option-colors";
 import {
+  BOARD_AREA,
   BOARD_SIZE,
   CHARACTERS,
   DICE_PIPS,
   DICE_TRANSFORM,
   DIFFICULTY_LABELS,
+  LADDERS,
   MAP_THEMES,
-  TOKEN_AREAS,
+  SNAKES,
+  cellRect,
+  cellToCoords,
   characterAsset,
   computePoints,
   mapTheme,
   pickQuestion,
   resolveSpecialCell,
   rollDice,
-  tokenRect,
-  type TokenAreaKey,
 } from "@/lib/snakes";
 import { DEFAULT_SNAKES_CONFIG } from "@/lib/snakes";
 import { getQuizGameMode, getSnakesConfig } from "@/lib/snakes-meta";
@@ -118,66 +120,155 @@ function Dice({ value, rolling }: { value: DifficultyLevel | null; rolling: bool
 }
 
 /* ------------------------------------------------------------------ */
-/*  Papan 100 kotak dengan tema peta sebagai latar                      */
+/*  Papan 100 kotak — gambar map dipakai sebagai permukaan papan         */
 /* ------------------------------------------------------------------ */
 
 function Board({
   players,
   themeId,
   special,
-  tokenArea,
 }: {
   players: GamePlayer[];
   themeId: MapThemeId;
   special: SpecialEvent | null;
-  tokenArea: TokenAreaKey;
 }) {
   const theme = mapTheme(themeId);
+  const cells = Array.from({ length: BOARD_SIZE }, (_, i) => i + 1);
 
   return (
     <div
       className="relative w-full overflow-hidden rounded-2xl border-2 border-border bg-card shadow-sm"
       style={{ aspectRatio: "2400 / 1792" }}
     >
-      {/* Gambar map 1–5 adalah papan permainan itu sendiri — tanpa grid buatan. */}
-      <img src={theme.asset} alt={`Papan ${theme.name}`} className="absolute inset-0 size-full object-fill" draggable={false} />
+      {/* Map 1–5 adalah permukaan papan itu sendiri, bukan sekadar latar. */}
+      <img
+        src={theme.asset}
+        alt={`Papan ${theme.name}`}
+        className="absolute inset-0 size-full object-fill"
+        draggable={false}
+      />
 
-      {/* Hanya token karakter yang digambar di atas papan */}
-      <div className="pointer-events-none absolute inset-0">
-        {players.map((p, i) => {
-          const jitter = (i % 3) - 1;
-          const rect = tokenRect(p.position, tokenArea);
-          return (
-            <motion.div
-              key={p.id}
-              className="absolute grid place-items-center"
-              style={rect}
-              animate={{ left: rect.left, top: rect.top }}
-              transition={{ type: "spring", stiffness: 280, damping: 26 }}
-            >
-              <motion.div
-                animate={{ x: jitter * 4, y: jitter * 3 }}
-                className="relative flex size-full items-end justify-center"
-              >
-                <img
-                  src={characterAsset(p.character)}
-                  alt={p.name}
-                  title={p.name}
-                  className="max-h-full w-full object-contain object-bottom drop-shadow-[0_3px_4px_rgba(0,0,0,0.65)]"
-                  draggable={false}
-                />
-                <span
+      {/* Area jalur 100 kotak: persegi di tengah gambar map, identik di semua tema. */}
+      <div
+        className="absolute inset-y-0"
+        style={{ left: `${BOARD_AREA.x * 100}%`, width: `${BOARD_AREA.size * 100}%` }}
+      >
+        <div className="relative size-full ring-2 ring-white/50 shadow-[0_0_0_9999px_rgba(0,0,0,0.16)]">
+          <div className="absolute inset-0 grid grid-cols-10 grid-rows-10">
+            {cells.map((n) => {
+              const { row, col } = cellToCoords(n);
+              const ladderTo = LADDERS[n];
+              const snakeTo = SNAKES[n];
+              return (
+                <div
+                  key={n}
+                  style={{ gridRow: row + 1, gridColumn: col + 1 }}
                   className={cn(
-                    "absolute -top-1 right-0 grid size-5 shrink-0 place-items-center rounded-full text-[9px] font-bold shadow-md ring-2 ring-white/80",
-                    TOKEN_TINT[i % TOKEN_TINT.length],
+                    "relative border border-white/30",
+                    (row + col) % 2 === 0 ? "bg-white/10" : "bg-black/15",
+                    n === BOARD_SIZE && "bg-warning/40",
                   )}
                 >
-                  {i + 1}
-                </span>
-              </motion.div>
-            </motion.div>
-          );
-        })}
+                  <span className="absolute left-0.5 top-0.5 rounded bg-black/60 px-1 text-[7px] font-bold leading-tight text-white sm:text-[9px]">
+                    {n}
+                  </span>
+                  {ladderTo !== undefined && (
+                    <ArrowUp className="absolute bottom-0.5 right-0.5 size-2.5 text-success sm:size-3.5" strokeWidth={3} />
+                  )}
+                  {snakeTo !== undefined && (
+                    <ArrowDown className="absolute bottom-0.5 right-0.5 size-2.5 text-destructive sm:size-3.5" strokeWidth={3} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Jalur ular & tangga mengikuti koordinat kotak yang sama. */}
+          <svg
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            className="pointer-events-none absolute inset-0 size-full"
+            aria-hidden="true"
+          >
+            <defs>
+              <marker id="snakes-ladder-arrow" markerWidth="3" markerHeight="3" refX="2.6" refY="1.5" orient="auto">
+                <path d="M0,0 L3,1.5 L0,3 Z" fill="#16a34a" />
+              </marker>
+              <marker id="snakes-snake-arrow" markerWidth="3" markerHeight="3" refX="2.6" refY="1.5" orient="auto">
+                <path d="M0,0 L3,1.5 L0,3 Z" fill="#dc2626" />
+              </marker>
+            </defs>
+            {Object.entries(LADDERS).map(([from, to]) => {
+              const a = cellRect(Number(from));
+              const b = cellRect(to);
+              return (
+                <line
+                  key={`ladder-${from}-${to}`}
+                  x1={a.cx} y1={a.cy} x2={b.cx} y2={b.cy}
+                  stroke="#16a34a" strokeWidth={0.75} strokeOpacity={0.85}
+                  markerEnd="url(#snakes-ladder-arrow)"
+                />
+              );
+            })}
+            {Object.entries(SNAKES).map(([from, to]) => {
+              const a = cellRect(Number(from));
+              const b = cellRect(to);
+              return (
+                <line
+                  key={`snake-${from}-${to}`}
+                  x1={a.cx} y1={a.cy} x2={b.cx} y2={b.cy}
+                  stroke="#dc2626" strokeWidth={0.75} strokeOpacity={0.85}
+                  strokeDasharray="2 1"
+                  markerEnd="url(#snakes-snake-arrow)"
+                />
+              );
+            })}
+          </svg>
+
+          {/* Token karakter dengan background transparan */}
+          <div className="pointer-events-none absolute inset-0">
+            {players.map((p, i) => {
+              const jitter = (i % 3) - 1;
+              const r = cellRect(p.position);
+              const style = {
+                left: `${r.left}%`,
+                top: `${r.top}%`,
+                width: `${r.size}%`,
+                height: `${r.size}%`,
+              };
+              return (
+                <motion.div
+                  key={p.id}
+                  className="absolute flex items-end justify-center"
+                  style={style}
+                  animate={{ left: style.left, top: style.top }}
+                  transition={{ type: "spring", stiffness: 280, damping: 26 }}
+                >
+                  <motion.div
+                    animate={{ x: jitter * 3, y: jitter * 2 }}
+                    className="relative flex size-full items-end justify-center"
+                  >
+                    <img
+                      src={characterAsset(p.character)}
+                      alt={p.name}
+                      title={p.name}
+                      className="max-h-full w-full object-contain object-bottom drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)]"
+                      draggable={false}
+                    />
+                    <span
+                      className={cn(
+                        "absolute -top-1 right-0 grid size-5 shrink-0 place-items-center rounded-full text-[9px] font-bold shadow-md ring-2 ring-white/90",
+                        TOKEN_TINT[i % TOKEN_TINT.length],
+                      )}
+                    >
+                      {i + 1}
+                    </span>
+                  </motion.div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Umpan balik visual ular / tangga */}
@@ -382,7 +473,6 @@ export default function SnakesGamePage() {
   const [winner, setWinner] = React.useState<GamePlayer | null>(null);
   const [special, setSpecial] = React.useState<SpecialEvent | null>(null);
   const [rounds, setRounds] = React.useState(0);
-  const [tokenArea, setTokenArea] = React.useState<TokenAreaKey>("penuh");
 
   /* --- refs untuk callback async --- */
   const timers = React.useRef<number[]>([]);
@@ -1011,14 +1101,9 @@ export default function SnakesGamePage() {
                       </div>
                     </div>
 
-                    <Board
-                      players={players}
-                      themeId={config.map_id}
-                      special={special}
-                      tokenArea={tokenArea}
-                    />
+                    <Board players={players} themeId={config.map_id} special={special} />
 
-                    <div className="flex flex-wrap items-center justify-center gap-3 rounded-xl border border-border bg-card px-4 py-3 sm:gap-4">
+                    <div className="flex flex-wrap items-center justify-center gap-4 rounded-xl border border-border bg-card px-4 py-3">
                       <div className="flex items-center gap-2 text-[11px] font-semibold text-success">
                         <ArrowUp className="size-3.5" /> Tangga naik
                       </div>
@@ -1028,14 +1113,9 @@ export default function SnakesGamePage() {
                       <div className="flex items-center gap-2 text-[11px] font-semibold text-warning">
                         <Trophy className="size-3.5" /> Kotak 100 = menang
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setTokenArea((a) => (a === "penuh" ? "tengah" : "penuh"))}
-                        title="Ubah area penempatan token bila kotak pada gambar map tidak memenuhi seluruh gambar"
-                        className="rounded-full border border-border bg-secondary px-3 py-1 text-[11px] font-bold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-                      >
-                        Area token: {TOKEN_AREAS[tokenArea].label}
-                      </button>
+                      <span className="text-[11px] font-semibold text-muted-foreground">
+                        100 kotak · jalur zigzag di atas gambar map
+                      </span>
                     </div>
                   </div>
 
