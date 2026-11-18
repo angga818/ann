@@ -91,7 +91,7 @@ export const MAP_THEMES: MapTheme[] = [
   },
 ];
 
-/** PRD §6 — asli desain pengguna, tidak diubah identitas visualnya. */
+/** PRD §6 — asli desain pengguna (karakter 1–7), tidak diubah identitas visualnya. */
 export interface GameCharacter {
   id: CharacterId;
   name: string;
@@ -100,10 +100,39 @@ export interface GameCharacter {
 }
 
 export const CHARACTERS: GameCharacter[] = [
-  { id: 1, name: "Karakter 1", role: "Pekerja PUSRI", asset: "/assets/characters/character1.jpeg" },
-  { id: 2, name: "Karakter 2", role: "Petani", asset: "/assets/characters/character2.jpeg" },
-  { id: 3, name: "Karakter 3", role: "Peneliti", asset: "/assets/characters/character3.jpeg" },
+  { id: 1, name: "Karakter 1", role: "Karakter 1", asset: "/assets/characters/character1.jpeg" },
+  { id: 2, name: "Karakter 2", role: "Karakter 2", asset: "/assets/characters/character2.jpeg" },
+  { id: 3, name: "Karakter 3", role: "Karakter 3", asset: "/assets/characters/character3.jpeg" },
+  { id: 4, name: "Karakter 4", role: "Karakter 4", asset: "/assets/characters/character4.jpeg" },
+  { id: 5, name: "Karakter 5", role: "Karakter 5", asset: "/assets/characters/character5.jpeg" },
+  { id: 6, name: "Karakter 6", role: "Karakter 6", asset: "/assets/characters/character6.jpeg" },
+  { id: 7, name: "Karakter 7", role: "Karakter 7", asset: "/assets/characters/character7.jpeg" },
 ];
+
+/**
+ * Area papan di dalam gambar map. Gambar map 1–5 adalah papan itu sendiri
+ * (2400 × 1792), jadi yang digambar frontend hanya token karakternya.
+ * Dua preset disediakan karena sebagian map menggambar grid penuh,
+ * sebagian lagi menyisipkan area permainan persegi di tengah.
+ */
+export const TOKEN_AREAS = {
+  penuh: { x: 0, y: 0, w: 1, h: 1, label: "Penuh" },
+  tengah: { x: 0.1267, y: 0, w: 0.7467, h: 1, label: "Tengah" },
+} as const;
+
+export type TokenAreaKey = keyof typeof TOKEN_AREAS;
+
+/** Posisi & ukuran token untuk sebuah kotak, relatif terhadap gambar map. */
+export function tokenRect(cell: number, area: TokenAreaKey) {
+  const { row, col } = cellToCoords(cell);
+  const a = TOKEN_AREAS[area];
+  return {
+    left: `${(a.x + (col / BOARD_COLS) * a.w) * 100}%`,
+    top: `${(a.y + (row / BOARD_COLS) * a.h) * 100}%`,
+    width: `${a.w * (100 / BOARD_COLS)}%`,
+    height: `${a.h * (100 / BOARD_COLS)}%`,
+  };
+}
 
 /** PRD §3.3 — label tingkat kesulitan hasil dadu. */
 export const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {

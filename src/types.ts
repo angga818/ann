@@ -66,8 +66,8 @@ export type QuestionMode = "CUSTOM" | "RANDOM";
 /** PRD §5 — lima tema papan (map 1–5). */
 export type MapThemeId = 1 | 2 | 3 | 4 | 5;
 
-/** PRD §6 — tiga karakter asli pengguna (desain karakter 1–3). */
-export type CharacterId = 1 | 2 | 3;
+/** PRD §6 — tujuh karakter asli pengguna (karakter 1–7). */
+export type CharacterId = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 /** PRD §3.3 — hasil dadu 1–6 = tingkat kesulitan 1–6. */
 export type DifficultyLevel = 1 | 2 | 3 | 4 | 5 | 6;

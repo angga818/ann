@@ -7,7 +7,6 @@ import {
   ArrowUp,
   Bot,
   Check,
-  ChevronDown,
   Clock,
   Dices,
   Info,
@@ -24,22 +23,21 @@ import { Link, useParams } from "react-router-dom";
 import { apiErrorMessage, getQuiz, listQuizzes } from "@/lib/api";
 import { optionStyle } from "@/lib/option-colors";
 import {
-  BOARD_COLS,
   BOARD_SIZE,
   CHARACTERS,
   DICE_PIPS,
   DICE_TRANSFORM,
   DIFFICULTY_LABELS,
-  LADDERS,
   MAP_THEMES,
-  SNAKES,
-  cellToCoords,
+  TOKEN_AREAS,
   characterAsset,
   computePoints,
   mapTheme,
   pickQuestion,
   resolveSpecialCell,
   rollDice,
+  tokenRect,
+  type TokenAreaKey,
 } from "@/lib/snakes";
 import { DEFAULT_SNAKES_CONFIG } from "@/lib/snakes";
 import { getQuizGameMode, getSnakesConfig } from "@/lib/snakes-meta";
@@ -127,82 +125,50 @@ function Board({
   players,
   themeId,
   special,
+  tokenArea,
 }: {
   players: GamePlayer[];
   themeId: MapThemeId;
   special: SpecialEvent | null;
+  tokenArea: TokenAreaKey;
 }) {
   const theme = mapTheme(themeId);
-  const cells = Array.from({ length: BOARD_SIZE }, (_, i) => i + 1);
 
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl border-2 border-border bg-card shadow-sm">
-      <img src={theme.asset} alt={theme.name} className="absolute inset-0 size-full object-cover" />
-      <div className="absolute inset-0 bg-card/60" />
+    <div
+      className="relative w-full overflow-hidden rounded-2xl border-2 border-border bg-card shadow-sm"
+      style={{ aspectRatio: "2400 / 1792" }}
+    >
+      {/* Gambar map 1–5 adalah papan permainan itu sendiri — tanpa grid buatan. */}
+      <img src={theme.asset} alt={`Papan ${theme.name}`} className="absolute inset-0 size-full object-fill" draggable={false} />
 
-      {/* Kotak */}
-      <div className="relative grid grid-cols-10">
-        {cells.map((n) => {
-          const ladderTo = LADDERS[n];
-          const snakeTo = SNAKES[n];
-          const ladderEnd = Object.values(LADDERS).includes(n);
-          const snakeEnd = Object.values(SNAKES).includes(n);
-          return (
-            <div
-              key={n}
-              className={cn(
-                "relative aspect-square border border-border/40 bg-card/80",
-                ladderTo !== undefined && "bg-success/30",
-                snakeTo !== undefined && "bg-destructive/25",
-                n === BOARD_SIZE && "bg-warning/50",
-              )}
-            >
-              <span className="absolute left-0.5 top-0 text-[7px] font-bold text-muted-foreground/70 sm:text-[9px]">
-                {n}
-              </span>
-              {ladderTo !== undefined && (
-                <ArrowUp className="absolute inset-0 m-auto size-3 text-success sm:size-4" strokeWidth={3} />
-              )}
-              {snakeTo !== undefined && (
-                <ArrowDown className="absolute inset-0 m-auto size-3 text-destructive sm:size-4" strokeWidth={3} />
-              )}
-              {ladderEnd && ladderTo === undefined && (
-                <span className="absolute bottom-0.5 right-0.5 size-1.5 rounded-full bg-success/70" />
-              )}
-              {snakeEnd && snakeTo === undefined && (
-                <span className="absolute bottom-0.5 right-0.5 size-1.5 rounded-full bg-destructive/70" />
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Karakter — diposisikan absolut mengikuti koordinat 10 × 10 */}
+      {/* Hanya token karakter yang digambar di atas papan */}
       <div className="pointer-events-none absolute inset-0">
         {players.map((p, i) => {
-          const { row, col } = cellToCoords(p.position);
           const jitter = (i % 3) - 1;
+          const rect = tokenRect(p.position, tokenArea);
           return (
             <motion.div
               key={p.id}
               className="absolute grid place-items-center"
-              style={{
-                width: `${100 / BOARD_COLS}%`,
-                height: `${100 / BOARD_COLS}%`,
-              }}
-              animate={{ left: `${col * (100 / BOARD_COLS)}%`, top: `${row * (100 / BOARD_COLS)}%` }}
+              style={rect}
+              animate={{ left: rect.left, top: rect.top }}
               transition={{ type: "spring", stiffness: 280, damping: 26 }}
             >
-              <motion.div animate={{ x: jitter * 3, y: jitter * 2 }} className="relative size-full p-0.5">
+              <motion.div
+                animate={{ x: jitter * 4, y: jitter * 3 }}
+                className="relative flex size-full items-end justify-center"
+              >
                 <img
                   src={characterAsset(p.character)}
                   alt={p.name}
                   title={p.name}
-                  className="size-full object-contain drop-shadow-md"
+                  className="max-h-full w-full object-contain object-bottom drop-shadow-[0_3px_4px_rgba(0,0,0,0.65)]"
+                  draggable={false}
                 />
                 <span
                   className={cn(
-                    "absolute -bottom-0.5 -right-0.5 grid size-4 place-items-center rounded-full text-[8px] font-bold shadow-sm ring-2 ring-card sm:size-5",
+                    "absolute -top-1 right-0 grid size-5 shrink-0 place-items-center rounded-full text-[9px] font-bold shadow-md ring-2 ring-white/80",
                     TOKEN_TINT[i % TOKEN_TINT.length],
                   )}
                 >
@@ -283,11 +249,19 @@ function QuestionOverlay({
         className="w-full max-w-2xl overflow-hidden rounded-3xl border border-border bg-card shadow-2xl"
       >
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-6 py-4">
-          <div>
-            <p className="text-xs font-bold text-primary">Giliran {player.name}</p>
-            <p className="text-[11px] text-muted-foreground">
-              Jawab benar untuk bergerak sejumlah hasil dadu.
-            </p>
+          <div className="flex items-center gap-3">
+            <img
+              src={characterAsset(player.character)}
+              alt={`${player.name} — karakter ${player.character}`}
+              className="h-14 w-10 shrink-0 object-contain object-bottom"
+              draggable={false}
+            />
+            <div>
+              <p className="text-xs font-bold text-primary">Giliran {player.name}</p>
+              <p className="text-[11px] text-muted-foreground">
+                Jawab benar untuk bergerak sejumlah hasil dadu.
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="secondary">Level {difficulty}</Badge>
@@ -408,6 +382,7 @@ export default function SnakesGamePage() {
   const [winner, setWinner] = React.useState<GamePlayer | null>(null);
   const [special, setSpecial] = React.useState<SpecialEvent | null>(null);
   const [rounds, setRounds] = React.useState(0);
+  const [tokenArea, setTokenArea] = React.useState<TokenAreaKey>("penuh");
 
   /* --- refs untuk callback async --- */
   const timers = React.useRef<number[]>([]);
@@ -890,7 +865,12 @@ export default function SnakesGamePage() {
                             >
                               {i + 1}
                             </span>
-                            <img src={characterAsset(p.character)} alt="" className="size-9 object-contain" />
+                            <img
+                              src={characterAsset(p.character)}
+                              alt={`${p.name} — karakter ${p.character}`}
+                              className="h-16 w-12 shrink-0 object-contain object-bottom"
+                              draggable={false}
+                            />
                             <span className="flex-1 text-sm font-semibold">{p.name}</span>
                             {p.isBot && <Badge variant="outline"><Bot className="size-3" /> Bot</Badge>}
                             {i === 0 && <Badge variant="secondary">Host</Badge>}
@@ -908,32 +888,48 @@ export default function SnakesGamePage() {
                       </div>
 
                       <div className="mt-5 space-y-3 border-t border-border pt-5">
-                        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-                          <div className="space-y-2">
-                            <Label>Nama pemain baru</Label>
-                            <Input
-                              value={newName}
-                              maxLength={20}
-                              placeholder="Nama pemain…"
-                              onChange={(e) => setNewName(e.target.value)}
-                              onKeyDown={(e) => e.key === "Enter" && addPlayer(false)}
-                            />
+                        <div className="space-y-2">
+                          <Label>Nama pemain baru</Label>
+                          <Input
+                            value={newName}
+                            maxLength={20}
+                            placeholder="Nama pemain…"
+                            onChange={(e) => setNewName(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && addPlayer(false)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Pilih Karakter (seluruh badan)</Label>
+                          <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                            {CHARACTERS.map((c) => {
+                              const active = newCharacter === c.id;
+                              return (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  title={`Pilih ${c.name}`}
+                                  onClick={() => setNewCharacter(c.id)}
+                                  className={cn(
+                                    "flex flex-col items-center gap-1 rounded-xl border-2 bg-foreground/[0.02] px-1 pb-1.5 pt-1 transition-all",
+                                    active
+                                      ? "border-primary bg-primary-soft shadow-sm"
+                                      : "border-border hover:-translate-y-0.5 hover:border-foreground/30",
+                                  )}
+                                >
+                                  <img
+                                    src={c.asset}
+                                    alt={c.name}
+                                    className="h-16 w-full object-contain object-bottom sm:h-20"
+                                    draggable={false}
+                                  />
+                                  <span className="text-[10px] font-bold">{c.name}</span>
+                                </button>
+                              );
+                            })}
                           </div>
-                          <div className="space-y-2">
-                            <Label>Karakter</Label>
-                            <div className="relative">
-                              <select
-                                value={newCharacter}
-                                onChange={(e) => setNewCharacter(Number(e.target.value) as CharacterId)}
-                                className="h-11 w-full appearance-none rounded-xl border border-input bg-card px-3 pr-9 text-sm font-semibold outline-none focus:ring-2 focus:ring-ring sm:w-44"
-                              >
-                                {CHARACTERS.map((c) => (
-                                  <option key={c.id} value={c.id}>{c.role}</option>
-                                ))}
-                              </select>
-                              <ChevronDown className="pointer-events-none absolute right-3 top-3.5 size-4 text-muted-foreground" />
-                            </div>
-                          </div>
+                          <p className="text-[11px] text-muted-foreground/70">
+                            Ketujuh karakter ditampilkan lengkap dengan badan — pilih salah satu sebelum menambah pemain.
+                          </p>
                         </div>
                         <div className="flex gap-2">
                           <Button variant="outline" className="flex-1" onClick={() => addPlayer(false)}>
@@ -956,8 +952,9 @@ export default function SnakesGamePage() {
                       <p className="text-xs font-semibold text-muted-foreground">Papan permainan</p>
                       <img
                         src={theme.asset}
-                        alt={theme.name}
-                        className="mt-3 h-44 w-full rounded-xl border border-border object-cover"
+                        alt={`Papan ${theme.name}`}
+                        className="mt-3 aspect-[2400/1792] w-full rounded-xl border border-border object-fill"
+                        draggable={false}
                       />
                       <h3 className="mt-3 font-display font-bold">{theme.name}</h3>
                       <p className="text-xs text-muted-foreground">{theme.description}</p>
@@ -1014,9 +1011,14 @@ export default function SnakesGamePage() {
                       </div>
                     </div>
 
-                    <Board players={players} themeId={config.map_id} special={special} />
+                    <Board
+                      players={players}
+                      themeId={config.map_id}
+                      special={special}
+                      tokenArea={tokenArea}
+                    />
 
-                    <div className="flex flex-wrap items-center justify-center gap-4 rounded-xl border border-border bg-card px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-center gap-3 rounded-xl border border-border bg-card px-4 py-3 sm:gap-4">
                       <div className="flex items-center gap-2 text-[11px] font-semibold text-success">
                         <ArrowUp className="size-3.5" /> Tangga naik
                       </div>
@@ -1026,6 +1028,14 @@ export default function SnakesGamePage() {
                       <div className="flex items-center gap-2 text-[11px] font-semibold text-warning">
                         <Trophy className="size-3.5" /> Kotak 100 = menang
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setTokenArea((a) => (a === "penuh" ? "tengah" : "penuh"))}
+                        title="Ubah area penempatan token bila kotak pada gambar map tidak memenuhi seluruh gambar"
+                        className="rounded-full border border-border bg-secondary px-3 py-1 text-[11px] font-bold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                      >
+                        Area token: {TOKEN_AREAS[tokenArea].label}
+                      </button>
                     </div>
                   </div>
 
@@ -1075,7 +1085,12 @@ export default function SnakesGamePage() {
                             <span className="grid size-6 place-items-center rounded-full bg-card text-[11px] font-bold">
                               {i + 1}
                             </span>
-                            <img src={characterAsset(p.character)} alt="" className="size-7 object-contain" />
+                            <img
+                              src={characterAsset(p.character)}
+                              alt={`${p.name} — karakter ${p.character}`}
+                              className="h-12 w-9 shrink-0 object-contain object-bottom"
+                              draggable={false}
+                            />
                             <span className="flex-1 truncate font-semibold">{p.name}</span>
                             <span className="text-[11px] text-muted-foreground">pos {p.position}</span>
                             <span className="font-bold text-primary tabular-nums">{p.score}</span>
@@ -1115,7 +1130,15 @@ export default function SnakesGamePage() {
                     >
                       <Trophy className="size-10 text-warning" />
                     </motion.div>
-                    <h2 className="mt-5 font-display text-3xl font-bold">Selamat, {winner.name}!</h2>
+                    <div className="mt-4 flex justify-center">
+                      <img
+                        src={characterAsset(winner.character)}
+                        alt={`${winner.name} — karakter ${winner.character}`}
+                        className="h-36 w-32 object-contain object-bottom drop-shadow-md"
+                        draggable={false}
+                      />
+                    </div>
+                    <h2 className="mt-2 font-display text-3xl font-bold">Selamat, {winner.name}!</h2>
                     <p className="mt-2 text-sm text-muted-foreground">
                       Pemenang mencapai kotak 100 dengan {winner.score} poin.
                     </p>
@@ -1154,7 +1177,12 @@ export default function SnakesGamePage() {
                           <span className="grid size-7 place-items-center rounded-full bg-card font-bold text-xs">
                             {i + 1}
                           </span>
-                          <img src={characterAsset(p.character)} alt="" className="size-9 object-contain" />
+                          <img
+                            src={characterAsset(p.character)}
+                            alt={`${p.name} — karakter ${p.character}`}
+                            className="h-16 w-12 shrink-0 object-contain object-bottom"
+                            draggable={false}
+                          />
                           <span className="flex-1 font-semibold">{p.name}</span>
                           <span className="text-xs text-muted-foreground">posisi {p.position}</span>
                           <span className="font-bold text-primary tabular-nums">{p.score} pts</span>

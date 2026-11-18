@@ -553,8 +553,8 @@ function SnakesConfigPanel({
                     active ? "border-primary shadow-sm" : "border-border hover:border-foreground/25",
                   )}
                 >
-                  <div className="relative h-16 w-full bg-secondary">
-                    <img src={m.asset} alt={m.name} className="size-full object-cover" />
+                  <div className="relative aspect-[2400/1792] w-full bg-secondary">
+                    <img src={m.asset} alt={`Papan ${m.name}`} className="size-full object-fill" draggable={false} />
                     {active && (
                       <span className="absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground">
                         <Check className="size-3" strokeWidth={3.5} />
@@ -598,28 +598,38 @@ function SnakesConfigPanel({
           </div>
 
           {/* Karakter host */}
-          <div className="space-y-2">
-            <Label>Karakter Anda</Label>
-            <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Karakter Anda (seluruh badan)</Label>
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
               {CHARACTERS.map((c) => {
                 const active = (config.character_id ?? 1) === c.id;
                 return (
                   <button
                     key={c.id}
                     type="button"
-                    title={c.role}
+                    title={`Pilih ${c.name}`}
                     onClick={() => onChange({ character_id: c.id as CharacterId })}
                     className={cn(
                       "flex flex-col items-center gap-1 rounded-xl border-2 p-2 transition-all",
-                      active ? "border-primary bg-primary-soft" : "border-border hover:border-foreground/25",
+                      active
+                        ? "border-primary bg-primary-soft shadow-sm"
+                        : "border-border hover:-translate-y-0.5 hover:border-foreground/25",
                     )}
                   >
-                    <img src={c.asset} alt={c.name} className="h-14 w-full object-contain" />
-                    <span className="text-[10px] font-bold">{c.role}</span>
+                    <img
+                      src={c.asset}
+                      alt={c.name}
+                      className="h-20 w-full object-contain object-bottom"
+                      draggable={false}
+                    />
+                    <span className="text-[10px] font-bold">{c.name}</span>
                   </button>
                 );
               })}
             </div>
+            <p className="text-[11px] text-muted-foreground/70">
+              Gunakan gambar karakter 1–7 milik Anda — ditampilkan utuh dengan badan, bukan foto profil.
+            </p>
           </div>
         </div>
 
